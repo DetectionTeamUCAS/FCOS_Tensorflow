@@ -63,7 +63,10 @@ def read_and_prepocess_single_img(filename_queue, shortside_len, is_training):
         img, gtboxes_and_label, img_h, img_w = image_preprocess.short_side_resize(img_tensor=img, gtboxes_and_label=gtboxes_and_label,
                                                                                   target_shortside_len=shortside_len,
                                                                                   length_limitation=cfgs.IMG_MAX_LENGTH)
-    img = img - tf.constant([[cfgs.PIXEL_MEAN]])  # sub pixel mean at last
+    if cfgs.NET_NAME in ['resnet101_v1d', 'resnet50_v1d']:
+        img = img / 255 - tf.constant([[cfgs.PIXEL_MEAN_]])
+    else:
+        img = img - tf.constant([[cfgs.PIXEL_MEAN]])  # sub pixel mean at last
     return img_name, img, gtboxes_and_label, num_objects, img_h, img_w
 
 

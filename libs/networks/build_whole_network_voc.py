@@ -7,7 +7,7 @@ import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import numpy as np
 
-from libs.networks import resnet, resnet_v1, resnet_gluoncv
+from libs.networks import resnet
 from libs.networks import mobilenet_v2
 from libs.configs import cfgs
 from libs.losses import losses_fcos
@@ -33,9 +33,7 @@ class DetectionNetwork(object):
 
         if self.base_network_name.startswith('resnet_v1'):
             return resnet.resnet_base(input_img_batch, scope_name=self.base_network_name, is_training=self.is_training)
-        elif self.base_network_name in ['resnet101_v1d', 'resnet50_v1d']:
-            return resnet_gluoncv.resnet_base(input_img_batch, scope_name=self.base_network_name,
-                                              is_training=self.is_training)
+
         elif self.base_network_name.startswith('MobilenetV2'):
             return mobilenet_v2.mobilenetv2_base(input_img_batch, is_training=self.is_training)
 
@@ -50,12 +48,13 @@ class DetectionNetwork(object):
         batch, fm_height, fm_width = tf.shape(offsets)[0], tf.shape(offsets)[1], tf.shape(offsets)[2]
         offsets = tf.reshape(offsets, [self.batch_size, -1, 4])
 
-        y_list = tf.py_func(self.linspace, inp=[tf.constant(0.5), tf.cast(fm_height, tf.float32)-tf.constant(0.5),
+        y_list = tf.py_func(self.linspace, inp=[tf.constant(0.0), tf.cast(fm_height, tf.float32)-tf.constant(1.0),
                                                 tf.cast(fm_height, tf.float32)],
                             Tout=[tf.float32])
+
         y_list = tf.broadcast_to(tf.reshape(y_list, [1, fm_height, 1, 1]), [1, fm_height, fm_width, 1])
 
-        x_list = tf.py_func(self.linspace, inp=[tf.constant(0.5), tf.cast(fm_width, tf.float32)-tf.constant(0.5),
+        x_list = tf.py_func(self.linspace, inp=[tf.constant(0.0), tf.cast(fm_width, tf.float32)-tf.constant(1.0),
                                                 tf.cast(fm_width, tf.float32)],
                             Tout=[tf.float32])
         x_list = tf.broadcast_to(tf.reshape(x_list, [1, 1, fm_width, 1]), [1, fm_height, fm_width, 1])
@@ -63,6 +62,31 @@ class DetectionNetwork(object):
         xy_list = tf.concat([x_list, y_list], axis=3) * stride
 
         center = tf.reshape(tf.broadcast_to(xy_list, [self.batch_size, fm_height, fm_width, 2]),
+                            [self.batch_size, -1, 2])
+
+        xmin = tf.expand_dims(center[:, :, 0] - offsets[:, :, 0], axis=2)
+        ymin = tf.expand_dims(center[:, :, 1] - offsets[:, :, 1], axis=2)
+        xmax = tf.expand_dims(center[:, :, 0] + offsets[:, :, 2], axis=2)
+        ymax = tf.expand_dims(center[:, :, 1] + offsets[:, :, 3], axis=2)
+        all_boxes = tf.concat([xmin, ymin, xmax, ymax], axis=2)
+        return all_boxes
+
+    def _get_rpn_bbox(self, offsets, stride):
+
+        batch, fm_height, fm_width = tf.shape(offsets)[0], tf.shape(offsets)[1], tf.shape(offsets)[2]
+        offsets = tf.reshape(offsets, [self.batch_size, -1, 4])
+
+        x_centers = tf.range(tf.cast(fm_width, tf.float32), dtype=tf.float32)
+        y_centers = tf.range(tf.cast(fm_height, tf.float32), dtype=tf.float32)
+
+        x_centers, y_centers = tf.meshgrid(x_centers, y_centers)
+        x_centers = tf.expand_dims(x_centers, axis=-1)
+        y_centers = tf.expand_dims(y_centers, axis=-1)
+
+        xy_centers = tf.concat([x_centers, y_centers], axis=2) * stride
+        xy_centers = tf.expand_dims(xy_centers, axis=0)
+
+        center = tf.reshape(tf.broadcast_to(xy_centers, [self.batch_size, fm_height, fm_width, 2]),
                             [self.batch_size, -1, 2])
 
         xmin = tf.expand_dims(center[:, :, 0] - offsets[:, :, 0], axis=2)
@@ -175,7 +199,7 @@ class DetectionNetwork(object):
                     #                  dtype=tf.float32, trainable=True)
                     rpn_box_offset = tf.exp(rpn_box_offset) * stride
 
-                    rpn_bbox = self.get_rpn_bbox(rpn_box_offset, stride)
+                    rpn_bbox = self._get_rpn_bbox(rpn_box_offset, stride)
 
                     rpn_box_scores_list.append(rpn_box_scores)
                     rpn_box_probs_list.append(rpn_box_probs)
@@ -243,7 +267,9 @@ class DetectionNetwork(object):
                 gt_boxes = tf.stop_gradient(fcos_target_batch[:, :, 2:])
 
                 rpn_cls_loss = losses_fcos.focal_loss(rpn_cls_prob, cls_gt, alpha=cfgs.ALPHA, gamma=cfgs.GAMMA)
-                rpn_bbox_loss = losses_fcos.iou_loss(rpn_box, gt_boxes, cls_gt, weight=ctr_gt)
+                # rpn_cls_loss = losses_fcos.focal_loss__(rpn_cls_score, cls_gt, alpha=cfgs.ALPHA, gamma=cfgs.GAMMA)
+                # rpn_bbox_loss = losses_fcos.iou_loss_(rpn_box, gt_boxes[:, :, :4], cls_gt, weight=ctr_gt)
+                rpn_bbox_loss = losses_fcos.iou_loss(rpn_box, gt_boxes[:, :, :4], cls_gt, weight=ctr_gt)
                 rpn_ctr_loss = losses_fcos.centerness_loss(rpn_cnt_scores, ctr_gt, cls_gt)
                 loss_dict = {
                     'rpn_cls_loss': rpn_cls_loss,

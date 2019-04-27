@@ -14,7 +14,7 @@ sys.path.append("../")
 
 from data.io.image_preprocess import short_side_resize_for_inference_data
 from libs.configs import cfgs
-from libs.networks import build_whole_network
+from libs.networks import build_whole_network_voc
 from libs.val_libs import voc_eval
 from libs.box_utils import draw_box_in_img
 import argparse
@@ -122,11 +122,13 @@ def eval(num_imgs, eval_dir, annotation_dir, showbox):
     else:
         real_test_imgname_list = test_imgname_list[: num_imgs]
 
-    faster_rcnn = build_whole_network.DetectionNetwork(base_network_name=cfgs.NET_NAME,
-                                                       is_training=False)
-    all_boxes = eval_with_plac(det_net=faster_rcnn, real_test_imgname_list=real_test_imgname_list,
-                   img_root=eval_dir,
-                   draw_imgs=showbox)
+    faster_rcnn = build_whole_network_voc.DetectionNetwork(base_network_name=cfgs.NET_NAME,
+                                                           is_training=False,
+                                                           batch_size=1)
+    all_boxes = eval_with_plac(det_net=faster_rcnn,
+                               real_test_imgname_list=real_test_imgname_list,
+                               img_root=eval_dir,
+                               draw_imgs=showbox)
 
     # save_dir = os.path.join(cfgs.EVALUATE_DIR, cfgs.VERSION)
     # if not os.path.exists(save_dir):
@@ -146,10 +148,10 @@ def parse_args():
 
     parser.add_argument('--eval_imgs', dest='eval_imgs',
                         help='evaluate imgs dir ',
-                        default='/data/VOC/VOC_test/VOC2007/JPEGImages', type=str)
+                        default='/data/VOCdevkit/VOC2007/JPEGImages', type=str)
     parser.add_argument('--annotation_dir', dest='test_annotation_dir',
                         help='the dir save annotations',
-                        default='/data/VOC/VOC_test/VOC2007/Annotations', type=str)
+                        default='/data/VOCdevkit/VOC2007/Annotations', type=str)
     parser.add_argument('--showbox', dest='showbox',
                         help='whether show detecion results when evaluation',
                         default=False, type=bool)

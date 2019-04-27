@@ -4,6 +4,11 @@ from libs.box_utils import boxes_utils
 import tensorflow as tf
 
 
+def debug(tensor):
+    tensor = tf.Print(tensor, [tensor], 'tensor', summarize=200)
+    return tensor
+
+
 def filter_detections(boxes, scores):
     """
     :param boxes: [-1, 4]
@@ -17,16 +22,12 @@ def filter_detections(boxes, scores):
         filtered_boxes = tf.gather(boxes, indices)
         filtered_scores = tf.gather(scores, indices)
 
-        # perform NMS
         nms_indices = tf.image.non_max_suppression(boxes=filtered_boxes,
                                                    scores=filtered_scores,
                                                    max_output_size=cfgs.MAXIMUM_DETECTIONS,
                                                    iou_threshold=cfgs.NMS_IOU_THRESHOLD)
 
-        # filter indices based on NMS
         indices = tf.gather(indices, nms_indices)
-
-    # add indices to list of all indices
     return indices
 
 

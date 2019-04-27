@@ -14,9 +14,7 @@ import json
 sys.path.append("../")
 
 from data.io.image_preprocess import short_side_resize_for_inference_data
-from libs.configs import cfgs
 from libs.networks import build_whole_network
-from libs.val_libs import voc_eval
 from libs.box_utils import draw_box_in_img
 import argparse
 from help_utils import tools
@@ -47,7 +45,10 @@ def eval_coco(det_net, real_test_img_list, draw_imgs=False):
     img_batch = short_side_resize_for_inference_data(img_tensor=img_batch,
                                                      target_shortside_len=cfgs.IMG_SHORT_SIDE_LEN,
                                                      length_limitation=cfgs.IMG_MAX_LENGTH)
-    img_batch = img_batch - tf.constant(cfgs.PIXEL_MEAN)
+    if cfgs.NET_NAME in ['resnet101_v1d', 'resnet50_v1d']:
+        img_batch = (img_batch / 255 - tf.constant(cfgs.PIXEL_MEAN_)) / tf.constant(cfgs.PIXEL_STD)
+    else:
+        img_batch = img_batch - tf.constant(cfgs.PIXEL_MEAN)
 
     # img_batch = (img_batch - tf.constant(cfgs.PIXEL_MEAN)) / (tf.constant(cfgs.PIXEL_STD)*255)
     img_batch = tf.expand_dims(img_batch, axis=0)
@@ -112,7 +113,8 @@ def eval_coco(det_net, real_test_img_list, draw_imgs=False):
                 final_detections = draw_box_in_img.draw_boxes_with_label_and_scores(draw_img,
                                                                                     boxes=show_boxes,
                                                                                     labels=show_categories,
-                                                                                    scores=show_scores)
+                                                                                    scores=show_scores,
+                                                                                    in_graph=False)
                 if not os.path.exists(cfgs.TEST_SAVE_PATH):
                     os.makedirs(cfgs.TEST_SAVE_PATH)
 
@@ -161,7 +163,7 @@ def eval(num_imgs, eval_data, eval_gt, showbox):
     detected_json = eval_coco(det_net=faster_rcnn, real_test_img_list=real_test_img_list, draw_imgs=showbox)
 
     # save_path = os.path.join('./eval_coco', cfgs.VERSION)
-    # detected_json = os.path.join(save_path, 'coco_res.json')
+    # detected_json = os.path.join(save_path, 'coco_minival.json')
     cocoval(detected_json, eval_gt)
 
 

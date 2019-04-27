@@ -2,6 +2,7 @@
 
 import numpy as np
 import sys
+import cv2
 sys.path.append('../../')
 from libs.configs import cfgs
 
@@ -51,6 +52,7 @@ def fcos_target(gt_boxes, image_batch, fm_size_list):
         xy = np.vstack((shift_y.ravel(), shift_x.ravel())).transpose()
 
         off_xy = offset[xy[:, 0] * stride, xy[:, 1] * stride]
+        # off_xy = offset[xy[:, 0] * stride + int(0.5 * stride), xy[:, 1] * stride + int(0.5 * stride)]
 
         off_max_xy = off_xy.max(axis=2)
         off_valid = np.zeros((fm_height, fm_width, boxes_cnt))
@@ -72,6 +74,7 @@ def fcos_target(gt_boxes, image_batch, fm_size_list):
         # cls
         cls_res = np.zeros((fm_height, fm_width))
         cls_res[xy[:, 0], xy[:, 1]] = cls[hit_gt_ind[xy[:, 0], xy[:, 1]]]
+        cv2.imwrite('./cls.jpg', cls_res * 255)
         cls_res_list.append(cls_res.reshape(-1))
 
         # centerness
@@ -79,6 +82,10 @@ def fcos_target(gt_boxes, image_batch, fm_size_list):
         center_res[xy[:, 0], xy[:, 1]] = center[
             xy[:, 0] * stride, xy[:, 1] * stride,
             hit_gt_ind[xy[:, 0], xy[:, 1]]]
+        # center_res[xy[:, 0], xy[:, 1]] = center[
+        #     xy[:, 0] * stride + int(0.5 * stride), xy[:, 1] * stride + int(0.5 * stride),
+        #     hit_gt_ind[xy[:, 0], xy[:, 1]]]
+        cv2.imwrite('./centerness.jpg', center_res * 255)
         ctr_res_list.append(center_res.reshape(-1))
 
     cls_res_final = np.concatenate(cls_res_list, axis=0)[:, np.newaxis]
@@ -194,11 +201,13 @@ def anchor_target(gt_boxes, resized_image):
 
 if __name__ == '__main__':
     image = np.zeros([512, 512, 3])
-    gt_boxes = np.array([[0, 0, 500, 500, 1],
-                         [30, 30, 60, 60, 4]])
+    gt_boxes = np.array([[11, 11, 511, 511, 1],
+                         [127+64, 127+64, 383-64, 383-64, 2],
+                         [0, 0, 60, 60, 4]])
+    # gt_boxes = np.array([[127, 127, 383, 383, 2]])
     fm_size_list = [[64, 64], [32, 32], [16, 16], [8, 8], [4, 4]]
     res = fcos_target(gt_boxes, image, fm_size_list)
     print(res.shape)
-    print(res[7542, :])
+    # print(res[7542, :])
     print(np.argmax(res[:, 1]))
 

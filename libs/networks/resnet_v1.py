@@ -40,36 +40,6 @@ def resnet_arg_scope(
             return arg_sc
 
 
-def fusion_two_layer(C_i, P_j, scope):
-    '''
-    i = j+1
-    :param C_i: shape is [1, h, w, c]
-    :param P_j: shape is [1, h/2, w/2, 256]
-    :return:
-    P_i
-    '''
-    with tf.variable_scope(scope):
-        level_name = scope.split('_')[1]
-
-        h, w = tf.shape(C_i)[1], tf.shape(C_i)[2]
-        upsample_p = tf.image.resize_bilinear(P_j,
-                                              size=[h, w],
-                                              name='up_sample_'+level_name)
-
-        reduce_dim_c = slim.conv2d(C_i,
-                                   num_outputs=256,
-                                   kernel_size=[1, 1], stride=1,
-                                   scope='reduce_dim_'+level_name)
-
-        add_f = 0.5*upsample_p + 0.5*reduce_dim_c
-
-        # P_i = slim.conv2d(add_f,
-        #                   num_outputs=256, kernel_size=[3, 3], stride=1,
-        #                   padding='SAME',
-        #                   scope='fusion_'+level_name)
-        return add_f
-
-
 # def add_heatmap(feature_maps, name):
 #     '''
 #
@@ -97,10 +67,10 @@ def resnet_base(img_batch, scope_name, is_training=True):
     else:
         raise NotImplementedError('We only support resnet_v1_50 or resnet_v1_101. ')
 
-    blocks = [resnet_v1_block('block1', base_depth=64, num_units=3, stride=2),
+    blocks = [resnet_v1_block('block1', base_depth=64, num_units=3, stride=1),
               resnet_v1_block('block2', base_depth=128, num_units=4, stride=2),
               resnet_v1_block('block3', base_depth=256, num_units=middle_num_units, stride=2),
-              resnet_v1_block('block4', base_depth=512, num_units=3, stride=1)]
+              resnet_v1_block('block4', base_depth=512, num_units=3, stride=2)]
     # when use fpn . stride list is [1, 2, 2]
 
     with slim.arg_scope(resnet_arg_scope(is_training=False)):
@@ -154,11 +124,17 @@ def resnet_base(img_batch, scope_name, is_training=True):
     # C5 = tf.Print(C5, [tf.shape(C5)], summarize=10, message='C5_shape')
     # add_heatmap(C5, name='Layer5/C5_heat')
 
-    feature_dict = {'C2': end_points_C2['{}/block1/unit_2/bottleneck_v1'.format(scope_name)],
-                    'C3': end_points_C3['{}/block2/unit_3/bottleneck_v1'.format(scope_name)],
-                    'C4': end_points_C4['{}/block3/unit_{}/bottleneck_v1'.format(scope_name, middle_num_units - 1)],
-                    'C5': end_points_C5['{}/block4/unit_3/bottleneck_v1'.format(scope_name)],
-                    # 'C5': end_points_C5['{}/block4'.format(scope_name)],
+    # feature_dict = {'C2': end_points_C2['{}/block1/unit_2/bottleneck_v1'.format(scope_name)],
+    #                 'C3': end_points_C3['{}/block2/unit_3/bottleneck_v1'.format(scope_name)],
+    #                 'C4': end_points_C4['{}/block3/unit_{}/bottleneck_v1'.format(scope_name, middle_num_units - 1)],
+    #                 'C5': end_points_C5['{}/block4/unit_3/bottleneck_v1'.format(scope_name)],
+    #                 # 'C5': end_points_C5['{}/block4'.format(scope_name)],
+    #                 }
+
+    feature_dict = {'C2': C2,
+                    'C3': C3,
+                    'C4': C4,
+                    'C5': C5,
                     }
 
     pyramid_dict = {}

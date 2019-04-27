@@ -7,7 +7,7 @@ import numpy as np
 
 
 # ------------------------------------------------
-VERSION = 'FCOS_Res50_20190418'
+VERSION = 'FCOS_Res50_VOC_20190426'
 NET_NAME = 'resnet_v1_50'
 ADD_BOX_IN_TENSORBOARD = True
 
@@ -18,8 +18,8 @@ print(ROOT_PATH)
 GPU_GROUP = "0,1,2,3,4,5,6,7"
 NUM_GPU = len(GPU_GROUP.strip().split(','))
 SHOW_TRAIN_INFO_INTE = 10
-SMRY_ITER = 100
-SAVE_WEIGHTS_INTE = 80000
+SMRY_ITER = 50
+SAVE_WEIGHTS_INTE = 5000
 
 SUMMARY_PATH = ROOT_PATH + '/output/summary'
 TEST_SAVE_PATH = ROOT_PATH + '/tools/test_result'
@@ -44,7 +44,7 @@ USE_07_METRIC = False
 MUTILPY_BIAS_GRADIENT = None   # 2.0  # if None, will not multipy
 GRADIENT_CLIPPING_BY_NORM = None   # 10.0  if None, will not clip
 
-BATCH_SIZE = 2
+BATCH_SIZE = 1
 EPSILON = 1e-5
 MOMENTUM = 0.9
 LR = 5e-4 * NUM_GPU * BATCH_SIZE
@@ -53,11 +53,11 @@ MAX_ITERATION = SAVE_WEIGHTS_INTE*20
 WARM_SETP = int(0.125 * SAVE_WEIGHTS_INTE)
 
 # -------------------------------------------- Data_preprocess_config
-DATASET_NAME = 'coco'
+DATASET_NAME = 'pascal'
 PIXEL_MEAN = [123.68, 116.779, 103.939]  # R, G, B. In tf, channel is RGB. In openCV, channel is BGR
 IMG_SHORT_SIDE_LEN = 600
 IMG_MAX_LENGTH = 1000
-CLASS_NUM = 80
+CLASS_NUM = 20
 
 # --------------------------------------------- Network_config
 SUBNETS_WEIGHTS_INITIALIZER = tf.random_normal_initializer(mean=0.0, stddev=0.01, seed=None)
@@ -70,7 +70,7 @@ WEIGHT_DECAY = 0.00004 if NET_NAME.startswith('Mobilenet') else 0.0001
 # ---------------------------------------------Anchor config
 USE_CENTER_OFFSET = True
 LEVLES = ['P3', 'P4', 'P5', 'P6', 'P7']
-BASE_ANCHOR_SIZE_LIST = [32, 64, 128, 256, 512]
+BASE_ANCHOR_SIZE_LIST = [32, 64, 128, 256, 512]  # addjust the base anchor size for voc.
 ANCHOR_STRIDE_LIST = [8, 16, 32, 64, 128]
 ANCHOR_SCALE_FACTORS = [10., 10., 5.0, 5.0]
 SET_WIN = np.asarray([0, 64, 128, 256, 512, 1e5]) * IMG_SHORT_SIDE_LEN / 800
@@ -83,7 +83,7 @@ GAMMA = 2
 NMS = True
 NMS_IOU_THRESHOLD = 0.5
 MAXIMUM_DETECTIONS = 300
-FILTERED_SCORES = 0.1
+FILTERED_SCORES = 0.15
 SHOW_SCORE_THRSHOLD = 0.2
 
 

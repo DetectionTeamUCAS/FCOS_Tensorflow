@@ -7,8 +7,8 @@ import numpy as np
 
 
 # ------------------------------------------------
-VERSION = 'FCOS_Res50_20190418'
-NET_NAME = 'resnet_v1_50'
+VERSION = 'FCOS_Res50_20190427'
+NET_NAME = 'resnet50_v1d'  # 'resnet_v1_50'
 ADD_BOX_IN_TENSORBOARD = True
 
 # ---------------------------------------- System_config
@@ -39,12 +39,13 @@ EVALUATE_DIR = ROOT_PATH + '/output/evaluate_result_pickle/'
 
 # ------------------------------------------ Train config
 FIXED_BLOCKS = 1  # allow 0~3
+FREEZE_BLOCKS = [True, False, False, False, False]  # for gluoncv backbone
 USE_07_METRIC = False
 
 MUTILPY_BIAS_GRADIENT = None   # 2.0  # if None, will not multipy
 GRADIENT_CLIPPING_BY_NORM = None   # 10.0  if None, will not clip
 
-BATCH_SIZE = 2
+BATCH_SIZE = 1
 EPSILON = 1e-5
 MOMENTUM = 0.9
 LR = 5e-4 * NUM_GPU * BATCH_SIZE
@@ -55,8 +56,10 @@ WARM_SETP = int(0.125 * SAVE_WEIGHTS_INTE)
 # -------------------------------------------- Data_preprocess_config
 DATASET_NAME = 'coco'
 PIXEL_MEAN = [123.68, 116.779, 103.939]  # R, G, B. In tf, channel is RGB. In openCV, channel is BGR
-IMG_SHORT_SIDE_LEN = 600
-IMG_MAX_LENGTH = 1000
+PIXEL_MEAN_ = [0.485, 0.456, 0.406]
+PIXEL_STD = [0.229, 0.224, 0.225]
+IMG_SHORT_SIDE_LEN = 800
+IMG_MAX_LENGTH = 1333
 CLASS_NUM = 80
 
 # --------------------------------------------- Network_config
@@ -83,8 +86,5 @@ GAMMA = 2
 NMS = True
 NMS_IOU_THRESHOLD = 0.5
 MAXIMUM_DETECTIONS = 300
-FILTERED_SCORES = 0.1
+FILTERED_SCORES = 0.15
 SHOW_SCORE_THRSHOLD = 0.2
-
-
-

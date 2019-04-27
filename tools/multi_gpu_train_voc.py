@@ -12,7 +12,7 @@ import time
 sys.path.append("../")
 
 from libs.configs import cfgs
-from libs.networks import build_whole_network
+from libs.networks import build_whole_network_voc
 from data.io.read_tfrecord_multi_gpu import next_batch
 from libs.box_utils import show_box_in_tensor
 from help_utils import tools
@@ -131,9 +131,9 @@ def train():
         tf.summary.scalar('lr', lr)
 
         optimizer = tf.train.MomentumOptimizer(lr, momentum=cfgs.MOMENTUM)
-        faster_rcnn = build_whole_network.DetectionNetwork(base_network_name=cfgs.NET_NAME,
-                                                           is_training=True,
-                                                           batch_size=cfgs.BATCH_SIZE)
+        faster_rcnn = build_whole_network_voc.DetectionNetwork(base_network_name=cfgs.NET_NAME,
+                                                               is_training=True,
+                                                               batch_size=cfgs.BATCH_SIZE)
 
         with tf.name_scope('get_batch'):
             img_name_batch, img_batch, gtboxes_and_label_batch, num_objects_batch, img_h_batch, img_w_batch = \
@@ -148,8 +148,6 @@ def train():
             start = i*cfgs.BATCH_SIZE
             end = (i+1)*cfgs.BATCH_SIZE
             img = img_batch[start:end, :, :, :]
-            if cfgs.NET_NAME in ['resnet101_v1d', 'resnet50_v1d']:
-                img = img / tf.constant([cfgs.PIXEL_STD])
 
             gtboxes_and_label = tf.cast(tf.reshape(gtboxes_and_label_batch[start:end, :, :],
                                                    [cfgs.BATCH_SIZE, -1, 5]), tf.float32)

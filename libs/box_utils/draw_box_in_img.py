@@ -89,9 +89,13 @@ def draw_label_with_scores(draw_obj, box, label, score, color):
                   font=FONT)
 
 
-def draw_boxes_with_label_and_scores(img_array, boxes, labels, scores):
+def draw_boxes_with_label_and_scores(img_array, boxes, labels, scores, in_graph=True):
 
-    img_array = img_array + np.array(cfgs.PIXEL_MEAN)
+    if in_graph:
+        if cfgs.NET_NAME in ['resnet101_v1d', 'resnet50_v1d']:
+            img_array = (img_array * np.array(cfgs.PIXEL_STD) + np.array(cfgs.PIXEL_MEAN_)) * 255
+        else:
+            img_array = img_array + np.array(cfgs.PIXEL_MEAN)
     img_array.astype(np.float32)
     boxes = boxes.astype(np.int64)
     labels = labels.astype(np.int32)

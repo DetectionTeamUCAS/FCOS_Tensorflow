@@ -1,10 +1,7 @@
 # FCOS: Fully Convolutional One-Stage Object Detection     
 
-## Problem
-It can be seen from the tensorboard that the classification ability of the model is particularly poor and the score is relatively low. There may be a problem with the focal loss, and I am still looking for the cause.
-
 ## Note
-**A [development version](https://github.com/DetectionTeamUCAS/FCOS_Tensorflow) based on Tensorflow.**   
+**It can be seen from the tensorboard that the classification ability of the model is particularly poor and the score is relatively low. There may be a problem with the focal loss, and I am still looking for the cause.**
 
 ## Abstract
 This is a tensorflow re-implementation of [FCOS: Fully Convolutional One-Stage Object Detection](https://arxiv.org/abs/1904.01355), and completed by [YangXue](https://github.com/yangxue0827).     
@@ -12,7 +9,7 @@ This is a tensorflow re-implementation of [FCOS: Fully Convolutional One-Stage O
 ## COCO
 |Model|Backbone|Train Schedule|GPU|Image/GPU|FP16|Box AP|
 |-----|--------|--------------|---|---------|----|---------------|
-|FCOS (ours)|R50v1|1X|8X GeForce RTX 2080 Ti|2|no|-|
+|FCOS (ours)|R50v1|1X|8X GeForce RTX 2080 Ti|2|no|**Debugging**|
 
 ![2](comparison.png)         
 
@@ -82,13 +79,7 @@ python convert_data_to_tfrecord.py --VOC_dir='/PATH/TO/VOCdevkit/VOCdevkit_train
                                    --dataset='pascal'
 ```     
 
-3、train
-```  
-cd $PATH_ROOT/tools
-python train.py
-```
-
-4、multi-gpu train
+3、multi-gpu train
 ```  
 cd $PATH_ROOT/tools
 python multi_gpu_train.py
@@ -108,4 +99,5 @@ tensorboard --logdir=.
 3、https://github.com/tensorflow/models/tree/master/research/object_detection        
 4、https://github.com/CharlesShang/FastMaskRCNN       
 5、https://github.com/matterport/Mask_RCNN      
-6、https://github.com/msracver/Deformable-ConvNets         
+6、https://github.com/msracver/Deformable-ConvNets      
+7、https://github.com/tianzhi0549/FCOS       
