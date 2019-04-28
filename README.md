@@ -21,42 +21,20 @@ This is a tensorflow re-implementation of [FCOS: Fully Convolutional One-Stage O
 5、tensorflow >= 1.12                   
 
 ## Download Model
-Please download [resnet50_v1](http://download.tensorflow.org/models/resnet_v1_50_2016_08_28.tar.gz)、[resnet101_v1](http://download.tensorflow.org/models/resnet_v1_101_2016_08_28.tar.gz) pre-trained models on Imagenet, put it to $PATH_ROOT/data/pretrained_weights.         
+### Pretrain weights
+1、Please download [resnet50_v1](http://download.tensorflow.org/models/resnet_v1_50_2016_08_28.tar.gz), [resnet101_v1](http://download.tensorflow.org/models/resnet_v1_101_2016_08_28.tar.gz) pre-trained models on Imagenet, put it to data/pretrained_weights.       
+2、Or you can choose to use a better backbone, refer to [gluon2TF](https://github.com/yangJirui/gluon2TF). [Pretrain Model Link](https://pan.baidu.com/s/1HF3G5XSxXm7W4pk10RuOlw), password: q4jg.
 
-## Data Format
-```
-├── VOCdevkit
-│   ├── VOCdevkit_train
-│       ├── Annotation
-│       ├── JPEGImages
-│   ├── VOCdevkit_test
-│       ├── Annotation
-│       ├── JPEGImages
-```
+### Trained weights
+**Select a configuration file in the folder ($PATH_ROOT/libs/configs/) and copy its contents into cfgs.py, then download the corresponding [weights](https://github.com/DetectionTeamUCAS/Models/tree/master/FCOS_Tensorflow).**      
 
 ## Compile
 ```  
 cd $PATH_ROOT/libs/box_utils/cython_utils
 python setup.py build_ext --inplace
-```
 
-## Demo
-
-**Select a configuration file in the folder ($PATH_ROOT/libs/configs/) and copy its contents into cfgs.py, then download the corresponding [weights](https://github.com/DetectionTeamUCAS/Models/tree/master/FCOS_Tensorflow).**      
-
-```   
-cd $PATH_ROOT/tools
-python inference.py --data_dir='/PATH/TO/IMAGES/' 
-                    --save_dir='/PATH/TO/SAVE/RESULTS/' 
-                    --GPU='0'
-```
-
-## Eval
-```  
-cd $PATH_ROOT/tools
-python eval.py --eval_imgs='/PATH/TO/IMAGES/'  
-               --annotation_dir='/PATH/TO/TEST/ANNOTATION/'
-               --GPU='0'
+cd $PATH_ROOT/libs/box_utils/nms
+python setup.py build_ext --inplace
 ```
 
 ## Train
@@ -71,13 +49,10 @@ python eval.py --eval_imgs='/PATH/TO/IMAGES/'
 2、make tfrecord
 ```  
 cd $PATH_ROOT/data/io/  
-python convert_data_to_tfrecord.py --VOC_dir='/PATH/TO/VOCdevkit/VOCdevkit_train/' 
-                                   --xml_dir='Annotation'
-                                   --image_dir='JPEGImages'
-                                   --save_name='train' 
-                                   --img_format='.jpg' 
-                                   --dataset='pascal'
-```     
+python convert_data_to_tfrecord_coco.py --VOC_dir='/PATH/TO/JSON/FILE/' 
+                                        --save_name='train' 
+                                        --dataset='coco'
+```      
 
 3、multi-gpu train
 ```  
@@ -85,12 +60,22 @@ cd $PATH_ROOT/tools
 python multi_gpu_train.py
 ```
 
+## Eval
+```  
+cd $PATH_ROOT/tools
+python eval_coco.py --eval_data='/PATH/TO/IMAGES/'  
+                    --eval_gt='/PATH/TO/TEST/ANNOTATION/'
+                    --GPU='0'
+``` 
+
 ## Tensorboard
 ```  
 cd $PATH_ROOT/output/summary
 tensorboard --logdir=.
 ``` 
+
 ![3](images.png)
+
 ![4](scalars.png)
 
 ## Reference

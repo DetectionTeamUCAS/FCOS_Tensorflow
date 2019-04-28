@@ -74,7 +74,7 @@ def fcos_target(gt_boxes, image_batch, fm_size_list):
         # cls
         cls_res = np.zeros((fm_height, fm_width))
         cls_res[xy[:, 0], xy[:, 1]] = cls[hit_gt_ind[xy[:, 0], xy[:, 1]]]
-        cv2.imwrite('./cls.jpg', cls_res * 255)
+        # cv2.imwrite('./cls.jpg', cls_res * 255)
         cls_res_list.append(cls_res.reshape(-1))
 
         # centerness
@@ -85,7 +85,7 @@ def fcos_target(gt_boxes, image_batch, fm_size_list):
         # center_res[xy[:, 0], xy[:, 1]] = center[
         #     xy[:, 0] * stride + int(0.5 * stride), xy[:, 1] * stride + int(0.5 * stride),
         #     hit_gt_ind[xy[:, 0], xy[:, 1]]]
-        cv2.imwrite('./centerness.jpg', center_res * 255)
+        # cv2.imwrite('./centerness.jpg', center_res * 255)
         ctr_res_list.append(center_res.reshape(-1))
 
     cls_res_final = np.concatenate(cls_res_list, axis=0)[:, np.newaxis]

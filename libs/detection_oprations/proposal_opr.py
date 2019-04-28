@@ -1,7 +1,9 @@
 # encoding: utf-8
+import tensorflow as tf
+
 from libs.configs import cfgs
 from libs.box_utils import boxes_utils
-import tensorflow as tf
+from libs.box_utils.py_cpu_nms import soft_nms
 
 
 def debug(tensor):
@@ -22,10 +24,15 @@ def filter_detections(boxes, scores):
         filtered_boxes = tf.gather(boxes, indices)
         filtered_scores = tf.gather(scores, indices)
 
-        nms_indices = tf.image.non_max_suppression(boxes=filtered_boxes,
-                                                   scores=filtered_scores,
-                                                   max_output_size=cfgs.MAXIMUM_DETECTIONS,
-                                                   iou_threshold=cfgs.NMS_IOU_THRESHOLD)
+        if cfgs.NMS_TYPE == 'NMS':
+            nms_indices = tf.image.non_max_suppression(boxes=filtered_boxes,
+                                                       scores=filtered_scores,
+                                                       max_output_size=cfgs.MAXIMUM_DETECTIONS,
+                                                       iou_threshold=cfgs.NMS_IOU_THRESHOLD)
+        else:
+            det = tf.concat([filtered_boxes, tf.expand_dims(filtered_scores, axis=-1)], axis=1)
+            nms_indices = tf.py_func(soft_nms, inp=[det, 0.5, 0.5, 0.001, 2],
+                                     Tout=[tf.int32])
 
         indices = tf.gather(indices, nms_indices)
     return indices

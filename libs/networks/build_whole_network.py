@@ -53,11 +53,16 @@ class DetectionNetwork(object):
         y_list = tf.py_func(self.linspace, inp=[tf.constant(0.5), tf.cast(fm_height, tf.float32)-tf.constant(0.5),
                                                 tf.cast(fm_height, tf.float32)],
                             Tout=[tf.float32])
+        # y_list = tf.linspace(tf.constant(0.5), tf.cast(fm_height, tf.float32) - tf.constant(0.5),
+        #                      tf.cast(fm_height, tf.int32))
+
         y_list = tf.broadcast_to(tf.reshape(y_list, [1, fm_height, 1, 1]), [1, fm_height, fm_width, 1])
 
         x_list = tf.py_func(self.linspace, inp=[tf.constant(0.5), tf.cast(fm_width, tf.float32)-tf.constant(0.5),
                                                 tf.cast(fm_width, tf.float32)],
                             Tout=[tf.float32])
+        # x_list = tf.linspace(tf.constant(0.5), tf.cast(fm_width, tf.float32) - tf.constant(0.5),
+        #                      tf.cast(fm_width, tf.int32))
         x_list = tf.broadcast_to(tf.reshape(x_list, [1, 1, fm_width, 1]), [1, fm_height, fm_width, 1])
 
         xy_list = tf.concat([x_list, y_list], axis=3) * stride
@@ -111,6 +116,8 @@ class DetectionNetwork(object):
         rpn_box_scores = tf.reshape(rpn_box_scores, [self.batch_size, -1, cfgs.CLASS_NUM],
                                     name='rpn_{}_classification_reshape'.format(level))
         rpn_box_probs = tf.nn.sigmoid(rpn_box_scores, name='rpn_{}_classification_sigmoid'.format(level))
+
+        tf.summary.image('centerness_{}'.format(level), tf.nn.sigmoid(tf.expand_dims(rpn_ctn_scores[0, :, :, :], axis=0)))
 
         rpn_ctn_scores = tf.reshape(rpn_ctn_scores, [self.batch_size, -1],
                                     name='rpn_{}_centerness_reshape'.format(level))

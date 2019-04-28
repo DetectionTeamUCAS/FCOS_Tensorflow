@@ -51,6 +51,7 @@ def get_coco_label_dict():
     NAME_LABEL_MAP = dict(zip(class_names, range(len(class_names))))
     return NAME_LABEL_MAP
 
+
 if cfgs.DATASET_NAME == 'ship':
     NAME_LABEL_MAP = {
         'back_ground': 0,
