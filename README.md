@@ -11,7 +11,7 @@ This is a tensorflow re-implementation of [FCOS: Fully Convolutional One-Stage O
 |-----|--------|--------------|---|---------|----|---------------|
 |FCOS (ours)|R50v1|1X|8X GeForce RTX 2080 Ti|2|no|**Debugging**|
 
-![2](comparison.png)         
+![2](performance.png)         
 
 ## My Development Environment
 1、python3.5 (anaconda recommend)             
