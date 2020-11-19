@@ -1,7 +1,7 @@
 # FCOS: Fully Convolutional One-Stage Object Detection     
 
 ## Abstract
-This is a tensorflow re-implementation of [FCOS: Fully Convolutional One-Stage Object Detection](https://arxiv.org/abs/1904.01355), and completed by [YangXue](https://github.com/yangxue0827).     
+This is a tensorflow re-implementation of [FCOS: Fully Convolutional One-Stage Object Detection](https://arxiv.org/abs/1904.01355), and completed by [YangXue](https://yangxue0827.github.io/).     
 
 ### Performance
 | Model |    Backbone    |    Training data    |    Val data    |    mAP    | Inf time (fps) | Model Link | Train Schedule | GPU | Image/GPU | Configuration File |
@@ -61,7 +61,7 @@ python convert_data_to_tfrecord_coco.py --VOC_dir='/PATH/TO/JSON/FILE/'
 3、Multi-gpu train
 ```  
 cd $PATH_ROOT/tools
-multi_gpu_train_batch.py
+multi_gpu_train.py
 ```
 
 ## Eval
@@ -70,15 +70,7 @@ multi_gpu_train_batch.py
 cd $PATH_ROOT/tools
 python eval_coco.py --eval_data='/PATH/TO/IMAGES/'  
                     --eval_gt='/PATH/TO/TEST/ANNOTATION/'
-                    --gpu='0'
-                    
-``` 
-
-```  
-cd $PATH_ROOT/tools
-python eval_coco_multiprocessing.py --eval_data='/PATH/TO/IMAGES/'  
-                                    --eval_gt='/PATH/TO/TEST/ANNOTATION/'
-                                    --gpus='0,1,2,3,4,5,6,7'           
+                    --gpus='0,1,2,3,4,5,6,7'           
 ``` 
 
 ### PASCAL VOC
