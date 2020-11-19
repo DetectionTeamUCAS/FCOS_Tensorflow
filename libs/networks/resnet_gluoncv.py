@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, print_function
 import tensorflow as tf
@@ -245,12 +246,12 @@ def resnet_base(img_batch, scope_name, is_training=True):
                                                           num_outputs=256, kernel_size=[3, 3], padding="SAME",
                                                           stride=1, scope="fuse_P%d" % level)
 
-            p6 = slim.conv2d(pyramid_dict['P5'],
+            p6 = slim.conv2d(pyramid_dict['P5'] if cfgs.USE_P5 else feature_dict['C5'],
                              num_outputs=256, kernel_size=[3, 3], padding="SAME",
                              stride=2, scope='p6_conv')
             pyramid_dict['P6'] = p6
 
-            p7 = tf.nn.relu(p6)
+            p7 = tf.nn.relu(p6, name='p6_relu')
 
             p7 = slim.conv2d(p7,
                              num_outputs=256, kernel_size=[3, 3], padding="SAME",
@@ -258,15 +259,7 @@ def resnet_base(img_batch, scope_name, is_training=True):
 
             pyramid_dict['P7'] = p7
 
-    # for level in range(7, 2, -1):
-    #     add_heatmap(feature_dict['C%d' % level], name='Layer%d/C%d_heat' % (level, level))
+    # for level in range(7, 1, -1):
     #     add_heatmap(pyramid_dict['P%d' % level], name='Layer%d/P%d_heat' % (level, level))
 
-    # return [P3, P4, P5, P6, P7]
-    print("we are in Pyramid::-======>>>>")
-    print(cfgs.LEVLES)
-    print("base_anchor_size are: ", cfgs.BASE_ANCHOR_SIZE_LIST)
-    print(20 * "__")
     return pyramid_dict
-
-

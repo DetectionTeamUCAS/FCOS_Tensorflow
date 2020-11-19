@@ -142,4 +142,4 @@ def get_label_name_map():
     return reverse_dict
 
 
-LABEl_NAME_MAP = get_label_name_map()
+LABEL_NAME_MAP = get_label_name_map()

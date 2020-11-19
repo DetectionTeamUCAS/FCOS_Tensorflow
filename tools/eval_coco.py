@@ -4,19 +4,20 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-import os, sys
+import os
+import sys
 import tensorflow as tf
-import time
 import cv2
-import pickle
 import numpy as np
 import json
+import math
+from tqdm import tqdm
+from multiprocessing import Queue, Process
+import argparse
 sys.path.append("../")
 
 from data.io.image_preprocess import short_side_resize_for_inference_data
 from libs.networks import build_whole_network
-from libs.box_utils import draw_box_in_img
-import argparse
 from help_utils import tools
 from libs.label_name_dict.label_dict import *
 
@@ -36,8 +37,8 @@ def cocoval(detected_json, eval_json):
     cocoEval.summarize()
 
 
-def eval_coco(det_net, real_test_img_list, draw_imgs=False):
-
+def worker(gpu_id, images, det_net, result_queue):
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     # 1. preprocess img
     img_plac = tf.placeholder(dtype=tf.uint8, shape=[None, None, 3])  # is RGB. not BGR
     img_batch = tf.cast(img_plac, tf.float32)
@@ -45,12 +46,11 @@ def eval_coco(det_net, real_test_img_list, draw_imgs=False):
     img_batch = short_side_resize_for_inference_data(img_tensor=img_batch,
                                                      target_shortside_len=cfgs.IMG_SHORT_SIDE_LEN,
                                                      length_limitation=cfgs.IMG_MAX_LENGTH)
-    if cfgs.NET_NAME in ['resnet101_v1d', 'resnet50_v1d']:
+    if cfgs.NET_NAME in ['resnet152_v1d', 'resnet101_v1d', 'resnet50_v1d']:
         img_batch = (img_batch / 255 - tf.constant(cfgs.PIXEL_MEAN_)) / tf.constant(cfgs.PIXEL_STD)
     else:
         img_batch = img_batch - tf.constant(cfgs.PIXEL_MEAN)
 
-    # img_batch = (img_batch - tf.constant(cfgs.PIXEL_MEAN)) / (tf.constant(cfgs.PIXEL_STD)*255)
     img_batch = tf.expand_dims(img_batch, axis=0)
 
     detection_boxes, detection_scores, detection_category = det_net.build_whole_detection_network(
@@ -71,83 +71,95 @@ def eval_coco(det_net, real_test_img_list, draw_imgs=False):
         sess.run(init_op)
         if not restorer is None:
             restorer.restore(sess, restore_ckpt)
-            print('restore model')
-
-        save_path = os.path.join('./eval_coco', cfgs.VERSION)
-        tools.mkdir(save_path)
-        fw_json_dt = open(os.path.join(save_path, 'coco_minival.json'), 'w')
-        coco_det = []
-        for i, a_img in enumerate(real_test_img_list):
-
+            print('restore model %d ...' % gpu_id)
+        for a_img in images:
             record = json.loads(a_img)
-            img_path = os.path.join('/data/COCO/val2017', record['fpath'].split('_')[-1])
+            img_path = os.path.join('/data/yangxue/dataset/COCO/val2017', record['fpath'].split('_')[-1])
             raw_img = cv2.imread(img_path)
             # raw_img = cv2.imread(record['fpath'])
             raw_h, raw_w = raw_img.shape[0], raw_img.shape[1]
 
-            start = time.time()
             resized_img, detected_boxes, detected_scores, detected_categories = \
                 sess.run(
                     [img_batch, detection_boxes, detection_scores, detection_category],
-                    feed_dict={img_plac: raw_img[:, :, ::-1]}  # cv is BGR. But need RGB
+                    feed_dict={img_plac: raw_img[:, :, ::-1]}
                 )
-            end = time.time()
-
-            eval_indices = detected_scores >= 0.01
-            detected_scores = detected_scores[eval_indices]
-            detected_boxes = detected_boxes[eval_indices]
-            detected_categories = detected_categories[eval_indices]
-
-            # print("{} cost time : {} ".format(img_name, (end - start)))
-            if draw_imgs:
-                show_indices = detected_scores >= cfgs.SHOW_SCORE_THRSHOLD
-                show_scores = detected_scores[show_indices]
-                show_boxes = detected_boxes[show_indices]
-                show_categories = detected_categories[show_indices]
-
-                draw_img = np.squeeze(resized_img, 0)
-                # draw_img = draw_img + np.array(cfgs.PIXEL_MEAN)
-
-                # draw_img = draw_img * (np.array(cfgs.PIXEL_STD)*255) + np.array(cfgs.PIXEL_MEAN)
-
-                final_detections = draw_box_in_img.draw_boxes_with_label_and_scores(draw_img,
-                                                                                    boxes=show_boxes,
-                                                                                    labels=show_categories,
-                                                                                    scores=show_scores,
-                                                                                    in_graph=False)
-                if not os.path.exists(cfgs.TEST_SAVE_PATH):
-                    os.makedirs(cfgs.TEST_SAVE_PATH)
-
-                cv2.imwrite(cfgs.TEST_SAVE_PATH + '/' + record['ID'],
-                            final_detections[:, :, ::-1])
-
-            xmin, ymin, xmax, ymax = detected_boxes[:, 0], detected_boxes[:, 1], \
-                                     detected_boxes[:, 2], detected_boxes[:, 3]
 
             resized_h, resized_w = resized_img.shape[1], resized_img.shape[2]
-
-            xmin = xmin * raw_w / resized_w
-            xmax = xmax * raw_w / resized_w
-
-            ymin = ymin * raw_h / resized_h
-            ymax = ymax * raw_h / resized_h
-
-            boxes = np.transpose(np.stack([xmin, ymin, xmax-xmin, ymax-ymin]))
-
-            # cost much time
-            for j, box in enumerate(boxes):
-                coco_det.append({'bbox': [float(box[0]), float(box[1]), float(box[2]), float(box[3])],
-                                 'score': float(detected_scores[j]), 'image_id': int(record['ID'].split('.jpg')[0].split('_000000')[-1]),
-                                 'category_id': int(classes_originID[LABEl_NAME_MAP[detected_categories[j]]])})
-
-            tools.view_bar('%s image cost %.3fs' % (record['ID'], (end - start)), i + 1, len(real_test_img_list))
-
-        json.dump(coco_det, fw_json_dt)
-        fw_json_dt.close()
-        return os.path.join(save_path, 'coco_minival.json')
+            scales = [raw_w / resized_w, raw_h / resized_h]
+            result_dict = {'scales': scales, 'boxes': detected_boxes,
+                           'scores': detected_scores, 'labels': detected_categories,
+                           'image_id': record['ID']}
+            result_queue.put_nowait(result_dict)
 
 
-def eval(num_imgs, eval_data, eval_gt, showbox):
+def eval_coco(det_net, real_test_img_list, gpu_ids):
+
+    save_path = os.path.join('./eval_coco', cfgs.VERSION)
+    tools.mkdir(save_path)
+    fw_json_dt = open(os.path.join(save_path, 'coco_minival.json'), 'w')
+    coco_det = []
+
+    nr_records = len(real_test_img_list)
+    pbar = tqdm(total=nr_records)
+    gpu_num = len(gpu_ids.strip().split(','))
+
+    nr_image = math.ceil(nr_records / gpu_num)
+    result_queue = Queue(500)
+    procs = []
+
+    for i in range(gpu_num):
+        start = i * nr_image
+        end = min(start + nr_image, nr_records)
+        split_records = real_test_img_list[start:end]
+        proc = Process(target=worker, args=(i, split_records, det_net, result_queue))
+        print('process:%d, start:%d, end:%d' % (i, start, end))
+        proc.start()
+        procs.append(proc)
+
+    for i in range(nr_records):
+        res = result_queue.get()
+
+        xmin, ymin, xmax, ymax = res['boxes'][:, 0], res['boxes'][:, 1], \
+                                 res['boxes'][:, 2], res['boxes'][:, 3]
+
+        xmin = xmin * res['scales'][0]
+        xmax = xmax * res['scales'][0]
+
+        ymin = ymin * res['scales'][1]
+        ymax = ymax * res['scales'][1]
+
+        boxes = np.transpose(np.stack([xmin, ymin, xmax-xmin, ymax-ymin]))
+
+        sort_scores = np.array(res['scores'])
+        sort_labels = np.array(res['labels'])
+        sort_boxes = np.array(boxes)
+
+        # if len(res['scores']) > cfgs.MAXIMUM_DETECTIONS:
+        #     sort_indx = np.argsort(np.array(res['scores']) * -1)[:cfgs.MAXIMUM_DETECTIONS]
+        #     # print(sort_indx)
+        #     sort_scores = np.array(res['scores'])[sort_indx]
+        #     sort_labels = np.array(res['labels'])[sort_indx]
+        #     sort_boxes = np.array(boxes)[sort_indx]
+
+        for j, box in enumerate(sort_boxes):
+            coco_det.append({'bbox': [float(box[0]), float(box[1]), float(box[2]), float(box[3])],
+                             'score': float(sort_scores[j]), 'image_id': int(res['image_id'].split('.jpg')[0].split('_000000')[-1]),
+                             'category_id': int(classes_originID[LABEL_NAME_MAP[sort_labels[j]]])})
+
+        pbar.set_description("Eval image %s" % res['image_id'])
+
+        pbar.update(1)
+
+    for p in procs:
+        p.join()
+
+    json.dump(coco_det, fw_json_dt)
+    fw_json_dt.close()
+    return os.path.join(save_path, 'coco_minival.json')
+
+
+def eval(num_imgs, eval_data, eval_gt, gpu_ids):
 
     with open(eval_data) as f:
         test_img_list = f.readlines()
@@ -157,10 +169,9 @@ def eval(num_imgs, eval_data, eval_gt, showbox):
     else:
         real_test_img_list = test_img_list[: num_imgs]
 
-    faster_rcnn = build_whole_network.DetectionNetwork(base_network_name=cfgs.NET_NAME,
-                                                       is_training=False,
-                                                       batch_size=1)
-    detected_json = eval_coco(det_net=faster_rcnn, real_test_img_list=real_test_img_list, draw_imgs=showbox)
+    fcos = build_whole_network.DetectionNetwork(base_network_name=cfgs.NET_NAME,
+                                                is_training=False)
+    detected_json = eval_coco(det_net=fcos, real_test_img_list=real_test_img_list, gpu_ids=gpu_ids)
 
     # save_path = os.path.join('./eval_coco', cfgs.VERSION)
     # detected_json = os.path.join(save_path, 'coco_minival.json')
@@ -172,18 +183,15 @@ def parse_args():
     parser = argparse.ArgumentParser('evaluate the result with Pascal2007 stdand')
 
     parser.add_argument('--eval_data', dest='eval_data',
-                        help='evaluate imgs dir ',
-                        default='/unsullied/sharefs/_research_detection/GeneralDetection/COCO/data/MSCOCO/odformat/coco_minival2014.odgt', type=str)
+                        help='evaluate imgs dir, download link: https://drive.google.com/file/d/1Au55e6lqvuTunNBZO2Cj4Kh9XySyM3ZN/view?usp=sharing',
+                        default='/data/yangxue/dataset/COCO/coco_minival2014.odgt', type=str)
     parser.add_argument('--eval_gt', dest='eval_gt',
-                        help='eval gt',
-                        default='/unsullied/sharefs/_research_detection/GeneralDetection/COCO/data/MSCOCO/instances_minival2014.json',
+                        help='eval gt, download link: https://drive.google.com/file/d/1cgyEzdGVfx7zPNUO0lLfm8pu0HfIj3Xv/view?usp=sharing',
+                        default='/data/yangxue/dataset/COCO/instances_minival2014.json',
                         type=str)
-    parser.add_argument('--showbox', dest='showbox',
-                        help='whether show detecion results when evaluation',
-                        default=True, type=bool)
-    parser.add_argument('--GPU', dest='GPU',
+    parser.add_argument('--gpus', dest='gpus',
                         help='gpu id',
-                        default='0', type=str)
+                        default='0,1,2,3,4,5,6,7', type=str)
     parser.add_argument('--eval_num', dest='eval_num',
                         help='the num of eval imgs',
                         default=np.inf, type=int)
@@ -193,33 +201,20 @@ def parse_args():
 
 if __name__ == '__main__':
 
-    # args = parse_args()
-    # print(20*"--")
-    # print(args)
-    # print(20*"--")
-    # os.environ["CUDA_VISIBLE_DEVICES"] = args.GPU
+    args = parse_args()
+    print(20*"--")
+    print(args)
+    print(20*"--")
+    eval(args.eval_num,  # use np.inf to test all the imgs. use 10 to test 10 imgs.
+         eval_data=args.eval_data,
+         eval_gt=args.eval_gt,
+         gpu_ids=args.gpus)
+
+    # os.environ["CUDA_VISIBLE_DEVICES"] = cfgs.GPU_GROUP
     # eval(np.inf,  # use np.inf to test all the imgs. use 10 to test 10 imgs.
-    #      eval_data=args.eval_data,
-    #      eval_gt=args.eval_gt,
-    #      showbox=args.showbox)
-
-    os.environ["CUDA_VISIBLE_DEVICES"] = '0'
-    eval(np.inf,  # use np.inf to test all the imgs. use 10 to test 10 imgs.
-         eval_data='/data/COCO/coco_minival2014.odgt',
-         eval_gt='/data/COCO/instances_minival2014.json',
-         showbox=False)
-
-
-
-
-
-
-
-
-
-
-
-
+    #      eval_data='/data/COCO/coco_minival2014.odgt',
+    #      eval_gt='/data/COCO/instances_minival2014.json',
+    #      gpu_ids='0,1,2,3,4,5,6,7')
 
 
 

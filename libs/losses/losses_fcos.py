@@ -21,7 +21,36 @@ def focal_loss(pred, label, background=0, alpha=0.5, gamma=2.0):
     return tf.reduce_sum(loss) / tf.maximum(tf.reduce_sum(positive_mask), 1)
 
 
-def focal_loss_(pred, label, alpha=0.25, gamma=2.0):
+def focal_loss_(pred, labels, alpha=0.25, gamma=2.0):
+
+    # compute the focal loss
+    labels = tf.cast(labels, tf.int32)
+    labels = tf.one_hot(labels, cfgs.CLASS_NUM + 1, axis=2)
+    labels = labels[:, :, 1:]
+    per_entry_cross_ent = (tf.nn.sigmoid_cross_entropy_with_logits(
+        labels=labels, logits=pred))
+    prediction_probabilities = tf.sigmoid(pred)
+    p_t = ((labels * prediction_probabilities) +
+           ((1 - labels) * (1 - prediction_probabilities)))
+    modulating_factor = 1.0
+    if gamma:
+        modulating_factor = tf.pow(1.0 - p_t, gamma)
+    alpha_weight_factor = 1.0
+    if alpha is not None:
+        alpha_weight_factor = (labels * alpha +
+                               (1 - labels) * (1 - alpha))
+    focal_cross_entropy_loss = (modulating_factor * alpha_weight_factor *
+                                per_entry_cross_ent)
+
+    # compute the normalizer: the number of positive anchors
+    normalizer = tf.stop_gradient(tf.where(tf.greater(labels, 0)))
+    normalizer = tf.cast(tf.shape(normalizer)[0], tf.float32)
+    normalizer = tf.maximum(1.0, normalizer)
+
+    return tf.reduce_sum(focal_cross_entropy_loss) / normalizer
+
+
+def focal_loss1(pred, label, alpha=0.25, gamma=2.0):
 
     with tf.name_scope("focal_loss"):
         label = tf.cast(label, tf.int32)
@@ -40,7 +69,7 @@ def focal_loss_(pred, label, alpha=0.25, gamma=2.0):
         return tf.reduce_sum(loss) / tf.maximum(tf.reduce_sum(positive_mask), 1)
 
 
-def focal_loss__(pred, label, alpha=0.25, gamma=2):
+def focal_loss2(pred, label, alpha=0.25, gamma=2):
 
     label = tf.cast(label, tf.int32)
     one_hot = tf.one_hot(label, cfgs.CLASS_NUM + 1, axis=2)

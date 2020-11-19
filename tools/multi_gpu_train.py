@@ -96,12 +96,6 @@ def get_gtboxes_and_label(gtboxes_and_label, num_objects):
     return gtboxes_and_label[:, :int(max(num_objects)), :]
 
 
-def _compute_gradients(tensor, var_list):
-  grads = tf.gradients(tensor, var_list)
-  return [grad if grad is not None else tf.zeros_like(var)
-          for var, grad in zip(var_list, grads)]
-
-
 def warmup_lr(init_lr, global_step, warmup_step, num_per_iter):
     def warmup(end_lr, global_step, warmup_step):
         start_lr = end_lr * 0.1
@@ -125,30 +119,29 @@ def train():
 
     with tf.Graph().as_default(), tf.device('/cpu:0'):
 
+        num_gpu = len(cfgs.GPU_GROUP.strip().split(','))
         global_step = slim.get_or_create_global_step()
-
-        lr = warmup_lr(cfgs.LR, global_step, cfgs.WARM_SETP, cfgs.NUM_GPU*cfgs.BATCH_SIZE)
+        lr = warmup_lr(cfgs.LR, global_step, cfgs.WARM_SETP, num_gpu*cfgs.BATCH_SIZE)
         tf.summary.scalar('lr', lr)
 
         optimizer = tf.train.MomentumOptimizer(lr, momentum=cfgs.MOMENTUM)
-        faster_rcnn = build_whole_network.DetectionNetwork(base_network_name=cfgs.NET_NAME,
-                                                           is_training=True,
-                                                           batch_size=cfgs.BATCH_SIZE)
+        fcos = build_whole_network.DetectionNetwork(base_network_name=cfgs.NET_NAME,
+                                                    is_training=True)
 
         with tf.name_scope('get_batch'):
             img_name_batch, img_batch, gtboxes_and_label_batch, num_objects_batch, img_h_batch, img_w_batch = \
                 next_batch(dataset_name=cfgs.DATASET_NAME,  # 'pascal', 'coco'
-                           batch_size=cfgs.BATCH_SIZE * cfgs.NUM_GPU,
+                           batch_size=cfgs.BATCH_SIZE * num_gpu,
                            shortside_len=cfgs.IMG_SHORT_SIDE_LEN,
                            is_training=True)
 
         # data processing
         inputs_list = []
-        for i in range(cfgs.NUM_GPU):
+        for i in range(num_gpu):
             start = i*cfgs.BATCH_SIZE
             end = (i+1)*cfgs.BATCH_SIZE
             img = img_batch[start:end, :, :, :]
-            if cfgs.NET_NAME in ['resnet101_v1d', 'resnet50_v1d']:
+            if cfgs.NET_NAME in ['resnet152_v1d', 'resnet101_v1d', 'resnet50_v1d']:
                 img = img / tf.constant([cfgs.PIXEL_STD])
 
             gtboxes_and_label = tf.cast(tf.reshape(gtboxes_and_label_batch[start:end, :, :],
@@ -211,21 +204,19 @@ def train():
                                                                     target_height=tf.cast(h_crop, tf.int32),
                                                                     target_width=tf.cast(w_crop, tf.int32))
 
-                                outputs = faster_rcnn.build_whole_detection_network(input_img_batch=img,
-                                                                                    gtboxes_batch=gtboxes_and_label)
-                                gtboxes_in_img = show_box_in_tensor.draw_boxes_with_categories(img_batch=img[0, :, :, :],
+                                outputs = fcos.build_whole_detection_network(input_img_batch=img,
+                                                                             gtboxes_batch=gtboxes_and_label)
+                                gtboxes_in_img = show_box_in_tensor.draw_boxes_with_categories(img_batch=tf.expand_dims(img[0, :, :, :], axis=0),
                                                                                                boxes=gtboxes_and_label[0, :, :-1],
                                                                                                labels=gtboxes_and_label[0, :, -1])
-                                gtboxes_in_img = tf.expand_dims(gtboxes_in_img, 0)
                                 tf.summary.image('Compare/gtboxes_gpu:%d' % i, gtboxes_in_img)
 
                                 if cfgs.ADD_BOX_IN_TENSORBOARD:
                                     detections_in_img = show_box_in_tensor.draw_boxes_with_categories_and_scores(
-                                        img_batch=img[0, :, :, :],
+                                        img_batch=tf.expand_dims(img[0, :, :, :], axis=0),
                                         boxes=outputs[0],
                                         scores=outputs[1],
                                         labels=outputs[2])
-                                    detections_in_img = tf.expand_dims(detections_in_img, 0)
                                     tf.summary.image('Compare/final_detection_gpu:%d' % i, detections_in_img)
 
                                 loss_dict = outputs[-1]
@@ -245,8 +236,9 @@ def train():
                                     total_losses = total_losses + tf.add_n(regularization_losses)
 
                         tf.get_variable_scope().reuse_variables()
-
                         grads = optimizer.compute_gradients(total_losses)
+                        if cfgs.GRADIENT_CLIPPING_BY_NORM is not None:
+                            grads = slim.learning.clip_gradient_norms(grads, cfgs.GRADIENT_CLIPPING_BY_NORM)
                         tower_grads.append(grads)
 
         for k in total_loss_dict.keys():
@@ -257,19 +249,22 @@ def train():
         else:
             grads = tower_grads[0]
 
-        # final_gvs = []
-        # with tf.variable_scope('Gradient_Mult'):
-        #     for grad, var in grads:
-        #         scale = 1.
-        #         # if '/biases:' in var.name:
-        #         #    scale *= 2.
-        #         if 'conv_new' in var.name:
-        #             scale *= 3.
-        #         if not np.allclose(scale, 1.0):
-        #             grad = tf.multiply(grad, scale)
-        #         final_gvs.append((grad, var))
+        if cfgs.MUTILPY_BIAS_GRADIENT is not None:
+            final_gvs = []
+            with tf.variable_scope('Gradient_Mult'):
+                for grad, var in grads:
+                    scale = 1.
+                    if '/biases:' in var.name:
+                        scale *= cfgs.MUTILPY_BIAS_GRADIENT
+                    if 'conv_new' in var.name:
+                        scale *= 3.
+                    if not np.allclose(scale, 1.0):
+                        grad = tf.multiply(grad, scale)
 
-        apply_gradient_op = optimizer.apply_gradients(grads, global_step=global_step)
+                    final_gvs.append((grad, var))
+            apply_gradient_op = optimizer.apply_gradients(final_gvs, global_step=global_step)
+        else:
+            apply_gradient_op = optimizer.apply_gradients(grads, global_step=global_step)
 
         variable_averages = tf.train.ExponentialMovingAverage(0.9999, global_step)
         variables_averages_op = variable_averages.apply(tf.trainable_variables())
@@ -278,8 +273,8 @@ def train():
         # train_op = optimizer.apply_gradients(final_gvs, global_step=global_step)
         summary_op = tf.summary.merge_all()
 
-        restorer, restore_ckpt = faster_rcnn.get_restorer()
-        saver = tf.train.Saver(max_to_keep=10)
+        restorer, restore_ckpt = fcos.get_restorer()
+        saver = tf.train.Saver(max_to_keep=5)
 
         init_op = tf.group(
             tf.global_variables_initializer(),
@@ -337,13 +332,13 @@ def train():
                             summary_writer.add_summary(summary_str, (global_stepnp-1)*num_per_iter)
                             summary_writer.flush()
 
-                if (step > 0 and step % (cfgs.SAVE_WEIGHTS_INTE // num_per_iter) == 0) or (step >= cfgs.MAX_ITERATION // cfgs.NUM_GPU - 1):
+                if (step > 0 and step % (cfgs.SAVE_WEIGHTS_INTE // num_per_iter) == 0) or (step >= cfgs.MAX_ITERATION // num_per_iter - 1):
 
                     save_dir = os.path.join(cfgs.TRAINED_CKPT, cfgs.VERSION)
                     if not os.path.exists(save_dir):
                         os.mkdir(save_dir)
 
-                    save_ckpt = os.path.join(save_dir, 'coco_' + str((global_stepnp-1)*num_per_iter) + 'model.ckpt')
+                    save_ckpt = os.path.join(save_dir, '{}_'.format(cfgs.DATASET_NAME) + str((global_stepnp-1)*num_per_iter) + 'model.ckpt')
                     saver.save(sess, save_ckpt)
                     print(' weights had been saved')
 
@@ -354,13 +349,3 @@ def train():
 if __name__ == '__main__':
 
     train()
-
-
-
-
-
-
-
-
-
-

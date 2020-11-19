@@ -7,6 +7,7 @@ from __future__ import division
 import tensorflow as tf
 
 import numpy as np
+from libs.configs import cfgs
 
 
 def max_length_limitation(length, length_limitation):
@@ -17,7 +18,6 @@ def max_length_limitation(length, length_limitation):
 
 def short_side_resize(img_tensor, gtboxes_and_label, target_shortside_len, length_limitation=1200):
     '''
-
     :param img_tensor:[h, w, c], gtboxes_and_label:[-1, 5].  gtboxes: [xmin, ymin, xmax, ymax]
     :param target_shortside_len:
     :param length_limitation: set max length to avoid OUT OF MEMORY
@@ -78,6 +78,3 @@ def random_flip_left_right(img_tensor, gtboxes_and_label):
                                             lambda: (img_tensor, gtboxes_and_label))
 
     return img_tensor,  gtboxes_and_label
-
-
-

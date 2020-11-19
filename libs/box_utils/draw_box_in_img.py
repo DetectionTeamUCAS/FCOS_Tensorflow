@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw, ImageFont
 import cv2
 
 from libs.configs import cfgs
-from libs.label_name_dict.label_dict import LABEl_NAME_MAP
+from libs.label_name_dict.label_dict import LABEL_NAME_MAP
 NOT_DRAW_BOXES = 0
 ONLY_DRAW_BOXES = -1
 ONLY_DRAW_BOXES_WITH_SCORES = -2
@@ -82,7 +82,7 @@ def draw_label_with_scores(draw_obj, box, label, score, color):
     draw_obj.rectangle(xy=[x, y, x + 60, y + 10],
                        fill=color)
 
-    txt = LABEl_NAME_MAP[label] + ':' + str(round(score, 2))
+    txt = LABEL_NAME_MAP[label] + ':' + str(round(score, 2))
     draw_obj.text(xy=(x, y),
                   text=txt,
                   fill='black',
@@ -90,9 +90,8 @@ def draw_label_with_scores(draw_obj, box, label, score, color):
 
 
 def draw_boxes_with_label_and_scores(img_array, boxes, labels, scores, in_graph=True):
-
     if in_graph:
-        if cfgs.NET_NAME in ['resnet101_v1d', 'resnet50_v1d']:
+        if cfgs.NET_NAME in ['resnet152_v1d', 'resnet101_v1d', 'resnet50_v1d']:
             img_array = (img_array * np.array(cfgs.PIXEL_STD) + np.array(cfgs.PIXEL_MEAN_)) * 255
         else:
             img_array = img_array + np.array(cfgs.PIXEL_MEAN)
@@ -154,10 +153,4 @@ if __name__ == '__main__':
     cv2.imshow("te3", imm3)
 
     cv2.waitKey(0)
-
-
-
-
-
-
 

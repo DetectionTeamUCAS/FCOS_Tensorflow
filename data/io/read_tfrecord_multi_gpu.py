@@ -63,7 +63,7 @@ def read_and_prepocess_single_img(filename_queue, shortside_len, is_training):
         img, gtboxes_and_label, img_h, img_w = image_preprocess.short_side_resize(img_tensor=img, gtboxes_and_label=gtboxes_and_label,
                                                                                   target_shortside_len=shortside_len,
                                                                                   length_limitation=cfgs.IMG_MAX_LENGTH)
-    if cfgs.NET_NAME in ['resnet101_v1d', 'resnet50_v1d']:
+    if cfgs.NET_NAME in ['resnet152_v1d', 'resnet101_v1d', 'resnet50_v1d']:
         img = img / 255 - tf.constant([[cfgs.PIXEL_MEAN_]])
     else:
         img = img - tf.constant([[cfgs.PIXEL_MEAN]])  # sub pixel mean at last
@@ -106,6 +106,7 @@ def next_batch(dataset_name, batch_size, shortside_len, is_training):
                        capacity=16,
                        num_threads=16,
                        dynamic_pad=True)
+
     return img_name_batch, img_batch, gtboxes_and_label_batch, num_obs_batch, img_h_batch, img_w_batch
 
 

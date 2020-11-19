@@ -5,11 +5,6 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
-import numpy as np
-import cv2
-from libs.label_name_dict.label_dict import LABEl_NAME_MAP
-
-from libs.configs import cfgs
 
 from libs.box_utils import draw_box_in_img
 
@@ -47,8 +42,8 @@ def draw_boxes_with_scores(img_batch, boxes, scores):
 def draw_boxes_with_categories(img_batch, boxes, labels):
     boxes = tf.stop_gradient(boxes)
 
-    # img_tensor = tf.squeeze(img_batch, 0)
-    img_tensor = tf.cast(img_batch, tf.float32)
+    img_tensor = tf.squeeze(img_batch, 0)
+    img_tensor = tf.cast(img_tensor, tf.float32)
     scores = tf.ones(shape=(tf.shape(boxes)[0],), dtype=tf.float32)
     img_tensor_with_boxes = tf.py_func(draw_box_in_img.draw_boxes_with_label_and_scores,
                                        inp=[img_tensor, boxes, labels, scores],
@@ -61,8 +56,8 @@ def draw_boxes_with_categories_and_scores(img_batch, boxes, labels, scores):
     boxes = tf.stop_gradient(boxes)
     scores = tf.stop_gradient(scores)
 
-    # img_tensor = tf.squeeze(img_batch, 0)
-    img_tensor = tf.cast(img_batch, tf.float32)
+    img_tensor = tf.squeeze(img_batch, 0)
+    img_tensor = tf.cast(img_tensor, tf.float32)
     img_tensor_with_boxes = tf.py_func(draw_box_in_img.draw_boxes_with_label_and_scores,
                                        inp=[img_tensor, boxes, labels, scores],
                                        Tout=[tf.uint8])
@@ -71,5 +66,4 @@ def draw_boxes_with_categories_and_scores(img_batch, boxes, labels, scores):
 
 
 if __name__ == "__main__":
-    print(1)
-
+    print (1)

@@ -34,7 +34,10 @@ def eval_with_plac(det_net, imgId_list, coco, out_json_root, draw_imgs=False):
     img_batch = short_side_resize_for_inference_data(img_tensor=img_batch,
                                                      target_shortside_len=cfgs.IMG_SHORT_SIDE_LEN,
                                                      length_limitation=cfgs.IMG_MAX_LENGTH)
-    img_batch = img_batch - tf.constant(cfgs.PIXEL_MEAN)
+    if cfgs.NET_NAME in ['resnet152_v1d', 'resnet101_v1d', 'resnet50_v1d']:
+        img_batch = (img_batch / 255 - tf.constant(cfgs.PIXEL_MEAN_)) / tf.constant(cfgs.PIXEL_STD)
+    else:
+        img_batch = img_batch - tf.constant(cfgs.PIXEL_MEAN)
     img_batch = tf.expand_dims(img_batch, axis=0)
 
     detection_boxes, detection_scores, detection_category = det_net.build_whole_detection_network(
@@ -73,14 +76,22 @@ def eval_with_plac(det_net, imgId_list, coco, out_json_root, draw_imgs=False):
             end = time.time()
 
             if draw_imgs:
-                show_indices = detected_scores >= cfgs.SHOW_SCORE_THRSHOLD
+                show_indices = detected_scores >= cfgs.VIS_SCORE
                 show_scores = detected_scores[show_indices]
                 show_boxes = detected_boxes[show_indices]
                 show_categories = detected_categories[show_indices]
-                final_detections = draw_box_in_img.draw_boxes_with_label_and_scores(np.squeeze(resized_img, 0),
+
+                draw_img = np.squeeze(resized_img, 0)
+
+                if cfgs.NET_NAME in ['resnet152_v1d', 'resnet101_v1d', 'resnet50_v1d']:
+                    draw_img = (draw_img * np.array(cfgs.PIXEL_STD) + np.array(cfgs.PIXEL_MEAN_)) * 255
+                else:
+                    draw_img = draw_img + np.array(cfgs.PIXEL_MEAN)
+                final_detections = draw_box_in_img.draw_boxes_with_label_and_scores(draw_img,
                                                                                     boxes=show_boxes,
                                                                                     labels=show_categories,
-                                                                                    scores=show_scores)
+                                                                                    scores=show_scores,
+                                                                                    in_graph=False)
                 cv2.imwrite(cfgs.TEST_SAVE_PATH + '/' + str(imgid) + '.jpg',
                             final_detections[:, :, ::-1])
 
@@ -126,7 +137,6 @@ def eval_with_plac(det_net, imgId_list, coco, out_json_root, draw_imgs=False):
 
 def eval(num_imgs):
 
-
    # annotation_path = '/home/yjr/DataSet/COCO/2017/test_annotations/image_info_test2017.json'
     annotation_path = '/home/yjr/DataSet/COCO/2017/test_annotations/image_info_test-dev2017.json'
     # annotation_path = '/home/yjr/DataSet/COCO/2017/annotations/instances_train2017.json'
@@ -138,10 +148,10 @@ def eval(num_imgs):
     if num_imgs !=np.inf:
         imgId_list = imgId_list[: num_imgs]
 
-    faster_rcnn = build_whole_network.DetectionNetwork(base_network_name=cfgs.NET_NAME,
-                                                       is_training=False)
+    fcos = build_whole_network.DetectionNetwork(base_network_name=cfgs.NET_NAME,
+                                                is_training=False)
     save_dir = os.path.join(cfgs.EVALUATE_DIR, cfgs.VERSION)
-    eval_with_plac(det_net=faster_rcnn, coco=coco, imgId_list=imgId_list, out_json_root=save_dir,
+    eval_with_plac(det_net=fcos, coco=coco, imgId_list=imgId_list, out_json_root=save_dir,
                    draw_imgs=True)
     print("each img over**************")
 
@@ -160,20 +170,4 @@ def eval(num_imgs):
 if __name__ == '__main__':
 
     eval(np.inf)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

@@ -5,21 +5,27 @@ import math
 import tensorflow as tf
 import numpy as np
 
+"""
+
+v2 + 896 * 896
+
+
+"""
 
 # ------------------------------------------------
-VERSION = 'FCOS_Res50_20190418'
-NET_NAME = 'resnet_v1_50'
+VERSION = 'FCOS_Res50_20201120'
+NET_NAME = 'resnet50_v1d'  # 'resnet_v1_50'
 ADD_BOX_IN_TENSORBOARD = True
 
 # ---------------------------------------- System_config
 ROOT_PATH = os.path.abspath('../')
 print(20*"++--")
 print(ROOT_PATH)
-GPU_GROUP = "0,1,2,3,4,5,6,7"
+GPU_GROUP = "1,2,3"
 NUM_GPU = len(GPU_GROUP.strip().split(','))
 SHOW_TRAIN_INFO_INTE = 10
 SMRY_ITER = 100
-SAVE_WEIGHTS_INTE = 80000
+SAVE_WEIGHTS_INTE = 5000 * 2
 
 SUMMARY_PATH = ROOT_PATH + '/output/summary'
 TEST_SAVE_PATH = ROOT_PATH + '/tools/test_result'
@@ -54,13 +60,13 @@ MAX_ITERATION = SAVE_WEIGHTS_INTE*20
 WARM_SETP = int(0.125 * SAVE_WEIGHTS_INTE)
 
 # -------------------------------------------- Data_preprocess_config
-DATASET_NAME = 'coco'
+DATASET_NAME = 'pascal'  # 'pascal', 'coco'
 PIXEL_MEAN = [123.68, 116.779, 103.939]  # R, G, B. In tf, channel is RGB. In openCV, channel is BGR
 PIXEL_MEAN_ = [0.485, 0.456, 0.406]
-PIXEL_STD = [0.229, 0.224, 0.225]
-IMG_SHORT_SIDE_LEN = 600
-IMG_MAX_LENGTH = 1000
-CLASS_NUM = 80
+PIXEL_STD = [0.229, 0.224, 0.225]  # R, G, B. In tf, channel is RGB. In openCV, channel is BGR
+IMG_SHORT_SIDE_LEN = 896
+IMG_MAX_LENGTH = 896
+CLASS_NUM = 20
 
 # --------------------------------------------- Network_config
 SUBNETS_WEIGHTS_INITIALIZER = tf.random_normal_initializer(mean=0.0, stddev=0.01, seed=None)
@@ -77,17 +83,16 @@ BASE_ANCHOR_SIZE_LIST = [32, 64, 128, 256, 512]
 ANCHOR_STRIDE_LIST = [8, 16, 32, 64, 128]
 SET_WIN = np.asarray([0, 64, 128, 256, 512, 1e5]) * IMG_SHORT_SIDE_LEN / 800
 
-# --------------------------------------------FPN config
+# -------------------------------------------- FPN config
 SHARE_HEADS = True
 ALPHA = 0.25
 GAMMA = 2
+USE_P5 = True
+USE_GN = True
 
 NMS = True
 NMS_IOU_THRESHOLD = 0.5
 NMS_TYPE = 'NMS'
 MAXIMUM_DETECTIONS = 300
-FILTERED_SCORES = 0.1
-SHOW_SCORE_THRSHOLD = 0.2
-
-
-
+FILTERED_SCORE = 0.001
+VIS_SCORE = 0.2

@@ -13,7 +13,6 @@ from libs.configs import cfgs
 from libs.losses import losses_fcos
 from libs.detection_oprations.proposal_opr import postprocess_detctions
 from libs.detection_oprations.fcos_target import get_fcos_target_batch
-from libs.networks.ops import norm_
 
 
 def debug(tensor):
@@ -23,11 +22,12 @@ def debug(tensor):
 
 class DetectionNetwork(object):
 
-    def __init__(self, base_network_name, is_training, batch_size):
+    def __init__(self, base_network_name, is_training):
 
         self.base_network_name = base_network_name
         self.is_training = is_training
-        self.batch_size = batch_size
+        self.batch_size = cfgs.BATCH_SIZE if is_training else 1
+        self.losses_dict = {}
 
     def build_base_network(self, input_img_batch):
 
@@ -50,19 +50,19 @@ class DetectionNetwork(object):
         batch, fm_height, fm_width = tf.shape(offsets)[0], tf.shape(offsets)[1], tf.shape(offsets)[2]
         offsets = tf.reshape(offsets, [self.batch_size, -1, 4])
 
-        y_list = tf.py_func(self.linspace, inp=[tf.constant(0.5), tf.cast(fm_height, tf.float32)-tf.constant(0.5),
-                                                tf.cast(fm_height, tf.float32)],
-                            Tout=[tf.float32])
-        # y_list = tf.linspace(tf.constant(0.5), tf.cast(fm_height, tf.float32) - tf.constant(0.5),
-        #                      tf.cast(fm_height, tf.int32))
+        # y_list = tf.py_func(self.linspace, inp=[tf.constant(0.5), tf.cast(fm_height, tf.float32)-tf.constant(0.5),
+        #                                         tf.cast(fm_height, tf.float32)],
+        #                     Tout=[tf.float32])
+        y_list = tf.linspace(tf.constant(0.5), tf.cast(fm_height, tf.float32) - tf.constant(0.5),
+                             tf.cast(fm_height, tf.int32))
 
         y_list = tf.broadcast_to(tf.reshape(y_list, [1, fm_height, 1, 1]), [1, fm_height, fm_width, 1])
 
-        x_list = tf.py_func(self.linspace, inp=[tf.constant(0.5), tf.cast(fm_width, tf.float32)-tf.constant(0.5),
-                                                tf.cast(fm_width, tf.float32)],
-                            Tout=[tf.float32])
-        # x_list = tf.linspace(tf.constant(0.5), tf.cast(fm_width, tf.float32) - tf.constant(0.5),
-        #                      tf.cast(fm_width, tf.int32))
+        # x_list = tf.py_func(self.linspace, inp=[tf.constant(0.5), tf.cast(fm_width, tf.float32)-tf.constant(0.5),
+        #                                         tf.cast(fm_width, tf.float32)],
+        #                     Tout=[tf.float32])
+        x_list = tf.linspace(tf.constant(0.5), tf.cast(fm_width, tf.float32) - tf.constant(0.5),
+                             tf.cast(fm_width, tf.int32))
         x_list = tf.broadcast_to(tf.reshape(x_list, [1, 1, fm_width, 1]), [1, fm_height, fm_width, 1])
 
         xy_list = tf.concat([x_list, y_list], axis=3) * stride
@@ -77,21 +77,22 @@ class DetectionNetwork(object):
         all_boxes = tf.concat([xmin, ymin, xmax, ymax], axis=2)
         return all_boxes
 
-    def rpn_cls_ctn_net(self, inputs, scope_list, reuse_flag, level):
+    def rpn_cls_net(self, inputs, scope_list, reuse_flag, level):
         rpn_conv2d_3x3 = inputs
         for i in range(4):
             rpn_conv2d_3x3 = slim.conv2d(inputs=rpn_conv2d_3x3,
                                          num_outputs=256,
                                          kernel_size=[3, 3],
                                          stride=1,
-                                         activation_fn=tf.nn.relu,
+                                         activation_fn=None if cfgs.USE_GN else tf.nn.relu,
                                          weights_initializer=cfgs.SUBNETS_WEIGHTS_INITIALIZER,
                                          biases_initializer=cfgs.SUBNETS_BIAS_INITIALIZER,
                                          scope='{}_{}'.format(scope_list[0], i),
                                          reuse=reuse_flag)
-            # rpn_conv2d_3x3 = norm_(rpn_conv2d_3x3, 'group', is_train=self.is_training)
-            # rpn_conv2d_3x3 = tf.contrib.layers.group_norm(rpn_conv2d_3x3)
-            # rpn_conv2d_3x3 = tf.nn.relu(rpn_conv2d_3x3)
+
+            if cfgs.USE_GN:
+                rpn_conv2d_3x3 = tf.contrib.layers.group_norm(rpn_conv2d_3x3)
+                rpn_conv2d_3x3 = tf.nn.relu(rpn_conv2d_3x3)
 
         rpn_box_scores = slim.conv2d(rpn_conv2d_3x3,
                                      num_outputs=cfgs.CLASS_NUM,
@@ -100,6 +101,38 @@ class DetectionNetwork(object):
                                      weights_initializer=cfgs.FINAL_CONV_WEIGHTS_INITIALIZER,
                                      biases_initializer=cfgs.FINAL_CONV_BIAS_INITIALIZER,
                                      scope=scope_list[2],
+                                     activation_fn=None,
+                                     reuse=reuse_flag)
+
+        rpn_box_scores = tf.reshape(rpn_box_scores, [self.batch_size, -1, cfgs.CLASS_NUM],
+                                    name='rpn_{}_classification_reshape'.format(level))
+        rpn_box_probs = tf.nn.sigmoid(rpn_box_scores, name='rpn_{}_classification_sigmoid'.format(level))
+
+        return rpn_box_scores, rpn_box_probs
+
+    def rpn_reg_ctn_net(self, inputs, scope_list, reuse_flag, level):
+        rpn_conv2d_3x3 = inputs
+        for i in range(4):
+            rpn_conv2d_3x3 = slim.conv2d(inputs=rpn_conv2d_3x3,
+                                         num_outputs=256,
+                                         kernel_size=[3, 3],
+                                         weights_initializer=cfgs.SUBNETS_WEIGHTS_INITIALIZER,
+                                         biases_initializer=cfgs.SUBNETS_BIAS_INITIALIZER,
+                                         stride=1,
+                                         activation_fn=None if cfgs.USE_GN else tf.nn.relu,
+                                         scope='{}_{}'.format(scope_list[1], i),
+                                         reuse=reuse_flag)
+            if cfgs.USE_GN:
+                rpn_conv2d_3x3 = tf.contrib.layers.group_norm(rpn_conv2d_3x3)
+                rpn_conv2d_3x3 = tf.nn.relu(rpn_conv2d_3x3)
+
+        rpn_box_offset = slim.conv2d(rpn_conv2d_3x3,
+                                     num_outputs=4,
+                                     kernel_size=[3, 3],
+                                     stride=1,
+                                     weights_initializer=cfgs.SUBNETS_WEIGHTS_INITIALIZER,
+                                     biases_initializer=cfgs.SUBNETS_BIAS_INITIALIZER,
+                                     scope=scope_list[4],
                                      activation_fn=None,
                                      reuse=reuse_flag)
 
@@ -113,45 +146,15 @@ class DetectionNetwork(object):
                                      activation_fn=None,
                                      reuse=reuse_flag)
 
-        rpn_box_scores = tf.reshape(rpn_box_scores, [self.batch_size, -1, cfgs.CLASS_NUM],
-                                    name='rpn_{}_classification_reshape'.format(level))
-        rpn_box_probs = tf.nn.sigmoid(rpn_box_scores, name='rpn_{}_classification_sigmoid'.format(level))
-
-        tf.summary.image('centerness_{}'.format(level), tf.nn.sigmoid(tf.expand_dims(rpn_ctn_scores[0, :, :, :], axis=0)))
+        tf.summary.image('centerness_{}'.format(level),
+                         tf.nn.sigmoid(tf.expand_dims(rpn_ctn_scores[0, :, :, :], axis=0)))
 
         rpn_ctn_scores = tf.reshape(rpn_ctn_scores, [self.batch_size, -1],
                                     name='rpn_{}_centerness_reshape'.format(level))
-        return rpn_box_scores, rpn_box_probs, rpn_ctn_scores
-
-    def rpn_reg_net(self, inputs, scope_list, reuse_flag):
-        rpn_box_offset = inputs
-        for i in range(4):
-            rpn_box_offset = slim.conv2d(inputs=rpn_box_offset,
-                                         num_outputs=256,
-                                         kernel_size=[3, 3],
-                                         weights_initializer=cfgs.SUBNETS_WEIGHTS_INITIALIZER,
-                                         biases_initializer=cfgs.SUBNETS_BIAS_INITIALIZER,
-                                         stride=1,
-                                         activation_fn=tf.nn.relu,
-                                         scope='{}_{}'.format(scope_list[1], i),
-                                         reuse=reuse_flag)
-            # rpn_box_offset = norm_(rpn_box_offset, 'group', is_train=self.is_training)
-            # rpn_box_offset = tf.contrib.layers.group_norm(rpn_box_offset)
-            # rpn_box_offset = tf.nn.relu(rpn_box_offset)
-
-        rpn_box_offset = slim.conv2d(rpn_box_offset,
-                                     num_outputs=4,
-                                     kernel_size=[3, 3],
-                                     stride=1,
-                                     weights_initializer=cfgs.SUBNETS_WEIGHTS_INITIALIZER,
-                                     biases_initializer=cfgs.SUBNETS_BIAS_INITIALIZER,
-                                     scope=scope_list[4],
-                                     activation_fn=None,
-                                     reuse=reuse_flag)
 
         # rpn_box_offset = tf.reshape(rpn_box_offset, [self.batch_size, -1, 4],
         #                             name='rpn_{}_regression_reshape'.format(level))
-        return rpn_box_offset
+        return rpn_box_offset, rpn_ctn_scores
 
     def rpn_net(self, feature_pyramid):
 
@@ -173,9 +176,10 @@ class DetectionNetwork(object):
                                       'rpn_classification_' + level, 'rpn_centerness' + level,
                                       'rpn_regression_' + level]
 
-                    rpn_box_scores, rpn_box_probs, rpn_ctn_scores = self.rpn_cls_ctn_net(feature_pyramid[level],
-                                                                                         scope_list, reuse_flag, level)
-                    rpn_box_offset = self.rpn_reg_net(feature_pyramid[level], scope_list, reuse_flag)
+                    rpn_box_scores, rpn_box_probs = self.rpn_cls_net(feature_pyramid[level],
+                                                                     scope_list, reuse_flag, level)
+                    rpn_box_offset, rpn_ctn_scores = self.rpn_reg_ctn_net(feature_pyramid[level], scope_list,
+                                                                          reuse_flag, level)
 
                     # si = tf.Variable(tf.constant(1.0),
                     #                  name='rpn_bbox_offsets_scale_'.format(level),
@@ -218,6 +222,9 @@ class DetectionNetwork(object):
             gtboxes_batch = tf.reshape(gtboxes_batch, [self.batch_size, -1, 5])
             gtboxes_batch = tf.cast(gtboxes_batch, tf.float32)
 
+        if cfgs.USE_GN:
+            input_img_batch = tf.reshape(input_img_batch, [self.batch_size, cfgs.IMG_SHORT_SIDE_LEN, cfgs.IMG_MAX_LENGTH, 3])
+
         img_shape = tf.shape(input_img_batch)
 
         feature_pyramid = self.build_base_network(input_img_batch)  # [P3, P4, P5, P6, P7]
@@ -231,17 +238,7 @@ class DetectionNetwork(object):
 
         rpn_prob = rpn_cls_prob * rpn_cnt_prob
 
-        if not self.is_training:
-            with tf.variable_scope('postprocess_detctions'):
-                boxes, scores, category = postprocess_detctions(rpn_bbox=rpn_box[0, :, :],
-                                                                rpn_cls_prob=rpn_prob[0, :, :],
-                                                                img_shape=img_shape)
-                return boxes, scores, category
-        else:
-            with tf.variable_scope('postprocess_detctions'):
-                boxes, scores, category = postprocess_detctions(rpn_bbox=rpn_box[0, :, :],
-                                                                rpn_cls_prob=rpn_prob[0, :, :],
-                                                                img_shape=img_shape)
+        if self.is_training:
             with tf.variable_scope('build_loss'):
                 fcos_target_batch = self._fcos_target(feature_pyramid, input_img_batch, gtboxes_batch)
 
@@ -249,16 +246,29 @@ class DetectionNetwork(object):
                 ctr_gt = tf.stop_gradient(fcos_target_batch[:, :, 1])
                 gt_boxes = tf.stop_gradient(fcos_target_batch[:, :, 2:])
 
-                rpn_cls_loss = losses_fcos.focal_loss(rpn_cls_prob, cls_gt, alpha=cfgs.ALPHA, gamma=cfgs.GAMMA)
+                # rpn_cls_loss = losses_fcos.focal_loss(rpn_cls_prob, cls_gt, alpha=cfgs.ALPHA, gamma=cfgs.GAMMA)
+                rpn_cls_loss = losses_fcos.focal_loss_(rpn_cls_score, cls_gt, alpha=cfgs.ALPHA, gamma=cfgs.GAMMA)
                 rpn_bbox_loss = losses_fcos.iou_loss(rpn_box, gt_boxes, cls_gt, weight=ctr_gt)
                 rpn_ctr_loss = losses_fcos.centerness_loss(rpn_cnt_scores, ctr_gt, cls_gt)
-                loss_dict = {
+                self.losses_dict = {
                     'rpn_cls_loss': rpn_cls_loss,
                     'rpn_bbox_loss': rpn_bbox_loss,
                     'rpn_ctr_loss': rpn_ctr_loss
                 }
+        with tf.variable_scope('postprocess_detctions'):
+            boxes, scores, category = postprocess_detctions(rpn_bbox=rpn_box[0, :, :],
+                                                            rpn_cls_prob=rpn_prob[0, :, :],
+                                                            img_shape=img_shape,
+                                                            is_training=self.is_training)
 
-            return boxes, scores, category, loss_dict
+            boxes = tf.stop_gradient(boxes)
+            scores = tf.stop_gradient(scores)
+            category = tf.stop_gradient(category)
+
+        if self.is_training:
+            return boxes, scores, category, self.losses_dict
+        else:
+            return boxes, scores, category
 
     def get_restorer(self):
         checkpoint_path = tf.train.latest_checkpoint(os.path.join(cfgs.TRAINED_CKPT, cfgs.VERSION))
