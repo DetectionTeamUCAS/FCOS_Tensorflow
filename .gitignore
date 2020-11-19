@@ -111,6 +111,7 @@ checkpoint
 __pycache__/
 *.json
 *.zip
+*tmp*
 
 */tools/demos/*
 */output/*

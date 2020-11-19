@@ -9,6 +9,7 @@ This is a tensorflow re-implementation of [FCOS: Fully Convolutional One-Stage O
 | [Faster-RCNN](https://github.com/DetectionTeamUCAS/Faster-RCNN_Tensorflow) | ResNet50_v1 600 | VOC07 trainval | VOC07 test | 73.09 | - | - | - | 1X GTX 1080Ti | 1 | - |
 | [FPN](https://github.com/DetectionTeamUCAS/FPN_Tensorflow) | ResNet50_v1 600 | VOC07 trainval | VOC07 test | 74.26 | - | - | - | 1X GTX 1080Ti | 1 | - |
 | [RetinaNet](https://github.com/DetectionTeamUCAS/RetinaNet_Tensorflow) | ResNet50_v1d 600 | VOC07 trainval | VOC07 test | 74.00 | 14.6 | [model](https://drive.google.com/file/d/1qjYsAi5uHB-6KgnrgWTN42a7Njkah-rA/view?usp=sharing) | - | 4X GeForce RTX 2080 Ti | 2 | - |
+| FCOS | ResNet50_v1d 896 | VOC07 trainval | VOC07 test | 73.55 | 17.5 |  | - | 3X GeForce RTX 2080 Ti | 2 | [cfgs_fcos_voc07_res50_v3.py](./libs/configs/VOC2007/cfgs_fcos_voc07_res50_v3.py) |
 | [RetinaNet](https://github.com/DetectionTeamUCAS/RetinaNet_Tensorflow) | ResNet50_v1d 600 | COCO train2017 | COCO val2017 (coco minival) | 34.3 (paper: 34.0) | 12.2 | [model](https://drive.google.com/file/d/1UIHFh_QnYpQCeFPimnmZhPuxpIkFjwq5/view?usp=sharing) | 1x | 4X GeForce RTX 2080 Ti | 2 | - |
 
 ## My Development Environment
