@@ -7,7 +7,7 @@ import numpy as np
 
 """
 
-v2 + 896 * 896
+v2 + 896 * 896 + fix fcos_target.py bug
 
 cls : person|| Recall: 0.9757067137809188 || Precison: 0.003594690143079733|| AP: 0.8034730720377914
 ____________________
