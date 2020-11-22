@@ -58,8 +58,8 @@ def fcos_target(gt_boxes, image_batch, fm_size_list):
         off_valid = np.zeros((fm_height, fm_width, boxes_cnt))
 
         is_in_boxes = (off_xy > 0).all(axis=2)
-        is_in_layer = (off_max_xy <= cfgs.SET_WIN[fm_i]) & \
-                      (off_max_xy >= cfgs.SET_WIN[fm_i - 1])
+        is_in_layer = (off_max_xy <= cfgs.SET_WIN[fm_i+1]) & \
+                      (off_max_xy >= cfgs.SET_WIN[fm_i])
         off_valid[xy[:, 0], xy[:, 1], :] = is_in_boxes & is_in_layer
         off_valid[:, :, 0] = 0
 
