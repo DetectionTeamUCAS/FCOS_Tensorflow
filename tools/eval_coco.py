@@ -74,7 +74,7 @@ def worker(gpu_id, images, det_net, result_queue):
             print('restore model %d ...' % gpu_id)
         for a_img in images:
             record = json.loads(a_img)
-            img_path = os.path.join('/data/yangxue/dataset/COCO/val2017', record['fpath'].split('_')[-1])
+            img_path = os.path.join('/data/dataset/COCO/val2017', record['fpath'].split('_')[-1])
             raw_img = cv2.imread(img_path)
             # raw_img = cv2.imread(record['fpath'])
             raw_h, raw_w = raw_img.shape[0], raw_img.shape[1]
@@ -105,7 +105,7 @@ def eval_coco(det_net, real_test_img_list, gpu_ids):
     gpu_num = len(gpu_ids.strip().split(','))
 
     nr_image = math.ceil(nr_records / gpu_num)
-    result_queue = Queue(500)
+    result_queue = Queue(5000)
     procs = []
 
     for i in range(gpu_num):
@@ -184,10 +184,10 @@ def parse_args():
 
     parser.add_argument('--eval_data', dest='eval_data',
                         help='evaluate imgs dir, download link: https://drive.google.com/file/d/1Au55e6lqvuTunNBZO2Cj4Kh9XySyM3ZN/view?usp=sharing',
-                        default='/data/yangxue/dataset/COCO/coco_minival2014.odgt', type=str)
+                        default='/data/dataset/COCO/coco_minival2014.odgt', type=str)
     parser.add_argument('--eval_gt', dest='eval_gt',
                         help='eval gt, download link: https://drive.google.com/file/d/1cgyEzdGVfx7zPNUO0lLfm8pu0HfIj3Xv/view?usp=sharing',
-                        default='/data/yangxue/dataset/COCO/instances_minival2014.json',
+                        default='/data/dataset/COCO/instances_minival2014.json',
                         type=str)
     parser.add_argument('--gpus', dest='gpus',
                         help='gpu id',
