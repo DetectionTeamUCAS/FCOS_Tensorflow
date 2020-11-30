@@ -11,6 +11,7 @@ This is a tensorflow re-implementation of [FCOS: Fully Convolutional One-Stage O
 | [RetinaNet](https://github.com/DetectionTeamUCAS/RetinaNet_Tensorflow) | ResNet50_v1d 600 | VOC07 trainval | VOC07 test | 74.00 | 14.6 | [model](https://drive.google.com/file/d/1qjYsAi5uHB-6KgnrgWTN42a7Njkah-rA/view?usp=sharing) | - | 4X GeForce RTX 2080 Ti | 2 | - |
 | FCOS | ResNet50_v1d 896 | VOC07 trainval | VOC07 test | 72.25 | 14.3 | [Baidu Drive (ujvj)](https://pan.baidu.com/s/1suZbHLvkDqAWh0qtOSTesQ) | - | 3X GeForce RTX 2080 Ti | 2 | [cfgs_fcos_voc07_res50_v4.py](./libs/configs/VOC2007/cfgs_fcos_voc07_res50_v4.py) |
 | [RetinaNet](https://github.com/DetectionTeamUCAS/RetinaNet_Tensorflow) | ResNet50_v1d 600 | COCO train2017 | COCO val2017 (coco minival) | 34.3 (paper: 34.0) | 12.2 | [model](https://drive.google.com/file/d/1UIHFh_QnYpQCeFPimnmZhPuxpIkFjwq5/view?usp=sharing) | 1x | 4X GeForce RTX 2080 Ti | 2 | - |
+| FCOS | ResNet50_v1d 600 | COCO train2017 | COCO val2017 (coco minival) | 34.8 | 12.2 | [Baidu Drive (qg62)](https://pan.baidu.com/s/1RCwbeh_jAbxi2shso41y3g) | 1x | 3X GeForce RTX 2080 Ti | 2 | [cfgs_fcos_coco_res50_1x_v1.py](./libs/configs/COCO/cfgs_fcos_coco_res50_1x_v1.py) |
 
 ## My Development Environment
 1、python3.5 (anaconda recommend)             

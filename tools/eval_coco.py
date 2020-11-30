@@ -112,7 +112,7 @@ def eval_coco(det_net, real_test_img_list, gpu_ids):
         start = i * nr_image
         end = min(start + nr_image, nr_records)
         split_records = real_test_img_list[start:end]
-        proc = Process(target=worker, args=(i, split_records, det_net, result_queue))
+        proc = Process(target=worker, args=(int(gpu_ids.strip().split(',')[i]), split_records, det_net, result_queue))
         print('process:%d, start:%d, end:%d' % (i, start, end))
         proc.start()
         procs.append(proc)

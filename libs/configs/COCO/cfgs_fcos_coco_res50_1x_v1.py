@@ -6,15 +6,15 @@ import tensorflow as tf
 import numpy as np
 
 """
-epoch-00: 12.7      epoch-01:
-epoch-02:       epoch-03:
-epoch-04:       epoch-05:
-epoch-06:       epoch-07:
-epoch-08:       epoch-09:
-epoch-10:       epoch-11:
-epoch-12:       epoch-13:
-epoch-14:       epoch-15:
-epoch-16:       epoch-17:
+epoch-00: 12.7      epoch-01: 20.0
+epoch-02: 23.5      epoch-03: 25.1
+epoch-04: 25.0      epoch-05: 27.4
+epoch-06: 27.8      epoch-07: 28.4
+epoch-08: 28.5      epoch-09: 29.6
+epoch-10: 29.2      epoch-11: 29.9
+epoch-12: 34.2      epoch-13: 34.4
+epoch-14: 34.4      epoch-15: 34.4
+epoch-16: 34.8      epoch-17: 34.8
 
 
 """
